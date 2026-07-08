@@ -7,7 +7,14 @@ Run with:
 Test with:
     curl -X POST http://localhost:5000/generate \
       -H "Content-Type: application/json" \
-      -d '{"level": "N4", "category": "grammar", "count": 5}'
+      -d '{"level": "N4", "category": "vocabulary", "count": 5, "mode": "new"}'
+
+Modes for vocabulary/kanji:
+- "new" (default): random words not seen before. Optionally pass
+  exclude_words (words the frontend already has stats for) to reduce repeats.
+- "review": pass review_words (exact words the frontend selected, e.g. by
+  weakest mastery / oldest last-seen). Fetches verified data for those exact
+  words and generates fresh example sentences for them.
 
 Architecture note:
 - grammar: model generates full questions (options + correct_option) since
@@ -32,6 +39,7 @@ CORS(app)  # allow the frontend (different port during dev) to call this API
 VALID_LEVELS = {"N5", "N4", "N3", "N2", "N1"}
 VALID_CATEGORIES = {"grammar", "vocabulary", "kanji"}
 VALID_COUNTS = {5, 10, 15}
+VALID_MODES = {"new", "review"}
 
 
 @app.route("/health", methods=["GET"])
@@ -46,6 +54,9 @@ def generate():
     level = str(body.get("level", "")).upper()
     category = str(body.get("category", "")).lower()
     count = body.get("count", 5)
+    mode = str(body.get("mode", "new")).lower()
+    exclude_words = body.get("exclude_words") or []
+    review_words = body.get("review_words") or []
 
     # --- validation ---
     if level not in VALID_LEVELS:
@@ -54,6 +65,10 @@ def generate():
         return jsonify({"error": f"Invalid category. Must be one of {sorted(VALID_CATEGORIES)}"}), 400
     if count not in VALID_COUNTS:
         return jsonify({"error": f"Invalid count. Must be one of {sorted(VALID_COUNTS)}"}), 400
+    if mode not in VALID_MODES:
+        return jsonify({"error": f"Invalid mode. Must be one of {sorted(VALID_MODES)}"}), 400
+    if mode == "review" and not review_words:
+        return jsonify({"error": "mode='review' requires a non-empty review_words list"}), 400
 
     if category == "grammar":
         prompt = build_generation_prompt(level=level, category=category, count=count)
@@ -66,9 +81,15 @@ def generate():
         # vocabulary / kanji: WE determine correct answers + distractors.
         try:
             if category == "vocabulary":
-                items = build_vocab_items(level=level, count=count)
+                if mode == "review":
+                    items = build_vocab_items(level=level, review_words=review_words)
+                else:
+                    items = build_vocab_items(level=level, count=count, exclude_words=exclude_words)
             else:
-                items = build_kanji_items(level=level, count=count)
+                if mode == "review":
+                    items = build_kanji_items(level=level, review_words=review_words)
+                else:
+                    items = build_kanji_items(level=level, count=count, exclude_words=exclude_words)
         except ValueError as e:
             return jsonify({"error": str(e)}), 502
 
@@ -83,6 +104,7 @@ def generate():
     return jsonify({
         "level": level,
         "category": category,
+        "mode": mode,
         "count": len(questions),
         "questions": questions,
     })

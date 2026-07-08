@@ -95,7 +95,18 @@ def _grammar_guidance(level: str, count: int) -> str:
         f"You MUST select {count} DIFFERENT patterns from this pool (do not repeat "
         f"the same pattern twice in this batch, and do not invent patterns outside "
         f"this list). Each question presents a natural sentence with a blank; the "
-        f"4 options are grammar forms that could fill it."
+        f"4 options are grammar forms that could fill it.\n\n"
+        f"OPTION FORMAT — READ CAREFULLY: each option must be ONLY the exact word(s) "
+        f"that get typed into the blank. Nothing else. No commas, no punctuation, no "
+        f"blank markers (no underscores), no particles written separately.\n"
+        f"Example of a fully correct question:\n"
+        f'  sentence: "友達が来たら、一緒に映画に行きましょう。" with the target phrase '
+        f'blanked out as: "友達が______、一緒に映画に行きましょう。"\n'
+        f'  options: ["来たら", "来れば", "来ても", "来るので"]\n'
+        f"  correct_option: 0\n"
+        f"Notice each option is a single clean word — the particle (たら/れば/ても/ので) "
+        f"is INSIDE the option text, and does NOT also appear separately in the sentence. "
+        f"The sentence contains the blank and nothing else related to the answer."
     )
 
 

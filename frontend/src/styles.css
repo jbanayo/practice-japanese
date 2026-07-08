@@ -1,0 +1,542 @@
+:root {
+  /* --- Color tokens --- */
+  --ink: #1c1b1a;
+  --paper: #ede7da;
+  --paper-line: #d8cfba;
+  --indigo: #2c4a5e;
+  --indigo-soft: #3d6178;
+  --seal: #b0362a;
+  --seal-soft: #c9564a;
+  --gold: #a98a4b;
+  --muted: #6b6559;
+
+  /* --- Type --- */
+  --font-display: 'Shippori Mincho', serif;
+  --font-body: 'Zen Kaku Gothic New', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* ---------------------------------------------------------------------
+   Genkouyoushi grid background — the signature visual motif.
+   A faint grid evoking Japanese manuscript paper (原稿用紙).
+--------------------------------------------------------------------- */
+.genkou-bg {
+  background-image:
+    linear-gradient(var(--paper-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--paper-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: center;
+  min-height: 100vh;
+}
+
+.app-shell {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.app-header .title-jp {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.6rem;
+  letter-spacing: 0.05em;
+  color: var(--ink);
+  margin: 0;
+}
+
+.app-header .title-sub {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+/* ---------------------------------------------------------------------
+   Streak badge
+--------------------------------------------------------------------- */
+.streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 6px 14px;
+  border: 1px solid var(--paper-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--indigo);
+}
+
+.streak-badge .flame {
+  color: var(--seal);
+}
+
+/* ---------------------------------------------------------------------
+   Config panel card
+--------------------------------------------------------------------- */
+.panel {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--paper-line);
+  border-radius: 4px;
+  padding: 32px;
+  backdrop-filter: blur(2px);
+}
+
+.panel-section {
+  margin-bottom: 32px;
+}
+
+.panel-section:last-child {
+  margin-bottom: 0;
+}
+
+.panel-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--paper-line);
+}
+
+/* ---------------------------------------------------------------------
+   Hanko-stamp selectable options (used for level + category + size)
+--------------------------------------------------------------------- */
+.stamp-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.stamp-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border: 1.5px solid var(--paper-line);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--ink);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.stamp-option:hover:not(:disabled) {
+  border-color: var(--indigo-soft);
+}
+
+.stamp-option:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.stamp-option .stamp-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.stamp-option.selected {
+  border-color: var(--seal);
+  background: rgba(176, 54, 42, 0.05);
+}
+
+.stamp-option.selected .stamp-mark {
+  border-color: var(--seal);
+}
+
+.stamp-option.selected .stamp-mark::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--seal);
+  animation: stamp-in 0.2s ease-out;
+}
+
+@keyframes stamp-in {
+  from { transform: scale(2); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.stamp-option .jp {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin-left: 4px;
+  color: var(--indigo);
+}
+
+.coming-soon-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  margin-left: 6px;
+  letter-spacing: 0.05em;
+}
+
+/* ---------------------------------------------------------------------
+   Generate button
+--------------------------------------------------------------------- */
+.generate-button {
+  width: 100%;
+  padding: 18px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 3px;
+  background: var(--indigo);
+  color: var(--paper);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.generate-button:hover:not(:disabled) {
+  background: var(--indigo-soft);
+}
+
+.generate-button:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.generate-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error-banner {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--seal);
+  border-radius: 3px;
+  background: rgba(176, 54, 42, 0.06);
+  color: var(--seal);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------------------
+   Loading screen — ink stroke writing itself, cycling kanji
+--------------------------------------------------------------------- */
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+}
+
+.ink-circle-wrap {
+  width: 140px;
+  height: 140px;
+  position: relative;
+  margin-bottom: 32px;
+}
+
+.ink-circle-wrap svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ink-circle-track {
+  fill: none;
+  stroke: var(--paper-line);
+  stroke-width: 3;
+}
+
+.ink-circle-stroke {
+  fill: none;
+  stroke: var(--seal);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 345;
+  animation: ink-draw 1.8s ease-in-out infinite;
+}
+
+@keyframes ink-draw {
+  0% { stroke-dashoffset: 345; }
+  50% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -345; }
+}
+
+.loading-kanji {
+  font-family: var(--font-display);
+  font-size: 3.2rem;
+  font-weight: 800;
+  color: var(--ink);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: kanji-fade 1.8s ease-in-out infinite;
+}
+
+@keyframes kanji-fade {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 1; }
+}
+
+.loading-caption {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------------
+   Results preview (stub until the full quiz UI is built)
+--------------------------------------------------------------------- */
+.results-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.results-list li {
+  padding: 14px 16px;
+  border: 1px solid var(--paper-line);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
+  white-space: pre-line;
+}
+
+.results-list .q-topic {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--indigo);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.back-link {
+  display: inline-block;
+  margin-top: 24px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--indigo);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ink-circle-stroke,
+  .loading-kanji {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Quiz screen
+--------------------------------------------------------------------- */
+.quiz-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.quiz-meta {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.quiz-topic {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--indigo);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.quiz-prompt {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  line-height: 1.7;
+  white-space: pre-line;
+  color: var(--ink);
+}
+
+.quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quiz-option {
+  text-align: left;
+  padding: 16px 18px;
+  border: 1.5px solid var(--paper-line);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.quiz-option:hover:not(:disabled) {
+  border-color: var(--indigo-soft);
+}
+
+.quiz-option:disabled {
+  cursor: default;
+}
+
+.quiz-option.correct {
+  border-color: var(--indigo);
+  background: rgba(44, 74, 94, 0.08);
+  font-weight: 700;
+}
+
+.quiz-option.wrong {
+  border-color: var(--seal);
+  background: rgba(176, 54, 42, 0.08);
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+
+.quiz-feedback {
+  border-top: 1px solid var(--paper-line);
+  padding-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quiz-feedback strong {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+}
+
+.quiz-feedback.is-correct strong {
+  color: var(--indigo);
+}
+
+.quiz-feedback.is-wrong strong {
+  color: var(--seal);
+}
+
+.quiz-feedback p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------------------
+   Session complete screen
+--------------------------------------------------------------------- */
+.complete-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 18px;
+  padding: 48px 32px;
+}
+
+.complete-stamp {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.4rem;
+  color: var(--seal);
+  border: 4px solid var(--seal);
+  border-radius: 8px;
+  padding: 10px 20px;
+  transform: rotate(-4deg);
+  letter-spacing: 0.1em;
+}
+
+.complete-stats {
+  display: flex;
+  gap: 32px;
+  margin-top: 8px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--indigo);
+}
+
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.complete-streak {
+  margin-top: 4px;
+}

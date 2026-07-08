@@ -24,6 +24,28 @@ def _strip_code_fences(text: str) -> str:
     return text.strip()
 
 
+BLANK_RE = re.compile(r"_+")
+
+# Particles that commonly get duplicated between the sentence template and
+# the answer option (observed bug: sentence has "__たら" as fixed text, and
+# the "correct" option also ends in "たら", producing "帰ったらたら").
+GRAMMAR_PARTICLES = [
+    "なければ", "ければ", "たら", "れば", "ても", "しまう", "ような", "そう", "ば", "と",
+]
+
+
+def _has_duplicate_particle(prompt_text: str, correct_answer: str) -> bool:
+    """Detects the sentence/option duplication bug for grammar questions."""
+    match = BLANK_RE.search(prompt_text)
+    if not match:
+        return False
+    after_blank = prompt_text[match.end():match.end() + 10]
+    for particle in GRAMMAR_PARTICLES:
+        if correct_answer.endswith(particle) and after_blank.startswith(particle):
+            return True
+    return False
+
+
 def _validate_questions(data: dict, expected_count: int) -> list:
     if "questions" not in data or not isinstance(data["questions"], list):
         raise GenerationError("Response missing 'questions' array")
@@ -39,8 +61,24 @@ def _validate_questions(data: dict, expected_count: int) -> list:
             raise GenerationError(f"Question {i} missing keys: {missing}")
         if not isinstance(q["options"], list) or len(q["options"]) != 4:
             raise GenerationError(f"Question {i} does not have exactly 4 options")
+        for opt in q["options"]:
+            if "_" in opt or "," in opt or "、" in opt:
+                raise GenerationError(
+                    f"Question {i} has a malformed option (contains stray "
+                    f"underscore/comma instead of a clean word): {opt!r}"
+                )
         if not isinstance(q["correct_option"], int) or not (0 <= q["correct_option"] <= 3):
             raise GenerationError(f"Question {i} has invalid correct_option: {q['correct_option']}")
+
+        correct_answer = q["options"][q["correct_option"]]
+        if _has_duplicate_particle(q["prompt"], correct_answer):
+            raise GenerationError(
+                f"Question {i} has a duplicated grammar particle between the "
+                f"sentence template and the correct answer (e.g. '...たら' + "
+                f"'帰ったら' -> '帰ったらたら'). Sentence: {q['prompt']!r}, "
+                f"answer: {correct_answer!r}. Retry the request."
+            )
+
         # normalize id if missing
         q["id"] = q.get("id", i + 1)
 
