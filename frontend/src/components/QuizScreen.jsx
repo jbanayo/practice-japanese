@@ -87,7 +87,28 @@ export default function QuizScreen({ questions, config, onComplete }) {
       </div>
 
       <div className="quiz-topic">{current.topic}</div>
-      <div className="quiz-prompt">{current.prompt}</div>
+      <div className="quiz-prompt">
+        {current.sentence_segments ? (
+          <>
+            <div className="quiz-sentence">
+              {current.sentence_segments.map((seg, idx) =>
+                seg.furigana ? (
+                  <ruby key={idx}>
+                    {seg.text}
+                    <rt>{seg.furigana}</rt>
+                  </ruby>
+                ) : (
+                  <span key={idx}>{seg.text}</span>
+                )
+              )}
+            </div>
+            <div className="quiz-question-line">{current.question_line}</div>
+          </>
+        ) : (
+          // Grammar path (parked feature) still uses the older plain-prompt shape
+          current.prompt
+        )}
+      </div>
 
       <div className="quiz-options">
         {current.options.map((opt, idx) => {

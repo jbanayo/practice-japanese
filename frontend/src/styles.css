@@ -412,8 +412,29 @@ button {
 .quiz-prompt {
   font-family: var(--font-display);
   font-size: 1.3rem;
-  line-height: 1.7;
+  line-height: 2.4;
   white-space: pre-line;
+  color: var(--ink);
+}
+
+.quiz-sentence {
+  margin-bottom: 12px;
+}
+
+.quiz-sentence ruby {
+  ruby-align: center;
+}
+
+.quiz-sentence rt {
+  font-family: var(--font-body);
+  font-size: 0.55em;
+  color: var(--indigo);
+  font-weight: 500;
+  user-select: none;
+}
+
+.quiz-question-line {
+  font-size: 1.1rem;
   color: var(--ink);
 }
 

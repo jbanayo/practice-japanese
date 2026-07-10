@@ -34,14 +34,14 @@ def get_random_vocab(level: str, count: int, exclude_words: list[str] = None) ->
         placeholders = ",".join("?" * len(exclude_words))
         exclude_clause = f"AND word NOT IN ({placeholders})" if exclude_words else ""
         cur.execute(
-            f"""SELECT word, reading, meaning FROM vocab
+            f"""SELECT word, reading, meaning, pos_category FROM vocab
                 WHERE jlpt_level = ? {exclude_clause}
                 ORDER BY RANDOM() LIMIT ?""",
             (level.upper(), *exclude_words, count),
         )
         return [
-            {"word": w, "reading": r, "meaning": m}
-            for w, r, m in cur.fetchall()
+            {"word": w, "reading": r, "meaning": m, "pos_category": p}
+            for w, r, m, p in cur.fetchall()
         ]
     finally:
         conn.close()
@@ -80,15 +80,15 @@ def get_vocab_by_words(level: str, words: list[str]) -> list[dict]:
         cur = conn.cursor()
         placeholders = ",".join("?" * len(words))
         cur.execute(
-            f"""SELECT word, reading, meaning FROM vocab
+            f"""SELECT word, reading, meaning, pos_category FROM vocab
                 WHERE jlpt_level = ? AND word IN ({placeholders})""",
             (level.upper(), *words),
         )
         # De-duplicate in case the same word appears more than once in the source data
         seen = {}
-        for w, r, m in cur.fetchall():
+        for w, r, m, p in cur.fetchall():
             if w not in seen:
-                seen[w] = {"word": w, "reading": r, "meaning": m}
+                seen[w] = {"word": w, "reading": r, "meaning": m, "pos_category": p}
         return list(seen.values())
     finally:
         conn.close()

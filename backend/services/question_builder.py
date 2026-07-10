@@ -29,6 +29,45 @@ def _has_kanji(text: str) -> bool:
     return bool(re.search(r"[\u4e00-\u9fff]", text))
 
 
+def _select_similar_distractors(distractor_pool: list[dict], correct_category: str,
+                                 get_category, get_value, n: int = 3) -> list[str]:
+    """
+    Picks `n` distractors, preferring ones that share the correct answer's
+    category (part-of-speech for vocab, gloss-shape bucket for kanji).
+    Falls back to filling remaining slots with any distractor if there
+    aren't enough same-category candidates — better to show a slightly
+    mismatched distractor than to fail the whole batch over it.
+    """
+    same_category = [d for d in distractor_pool if get_category(d) == correct_category]
+    other = [d for d in distractor_pool if get_category(d) != correct_category]
+
+    random.shuffle(same_category)
+    random.shuffle(other)
+
+    chosen = same_category[:n]
+    if len(chosen) < n:
+        chosen += other[:n - len(chosen)]
+
+    return [get_value(d) for d in chosen]
+
+
+def classify_kanji_gloss(text: str) -> str:
+    """
+    Kanji meanings have no real part-of-speech data (KANJIDIC just lists
+    English glosses, not grammatical tags like JMdict has for vocab). This
+    is a coarse heuristic based on the gloss text itself — much less
+    reliable than the real POS tags used for vocab, but still catches the
+    most obvious giveaway: a "to do X" verb-shaped gloss sitting next to
+    plain noun-shaped glosses as multiple-choice options.
+    """
+    text = text.strip().lower()
+    if text.startswith("to "):
+        return "verb"
+    if re.search(r"(ful|ous|ive|able|ible|al|ic)$", text) and " " not in text:
+        return "adjective"
+    return "noun_or_other"
+
+
 def build_vocab_items(level: str, count: int = None,
                        exclude_words: list[str] = None,
                        review_words: list[str] = None) -> list[dict]:
@@ -43,6 +82,10 @@ def build_vocab_items(level: str, count: int = None,
     - "review": pass review_words (exact words the person has seen before,
       selected by the frontend based on mastery/recency). Fetches verified
       data for those specific words and generates fresh sentences for them.
+
+    Distractors for "meaning" questions prefer matching the correct answer's
+    real part-of-speech (from JMdict), so options don't give away the answer
+    just by shape (e.g. three verb translations and one noun translation).
     """
     if review_words:
         correct_entries = get_vocab_by_words(level, review_words)
@@ -79,16 +122,20 @@ def build_vocab_items(level: str, count: int = None,
         else:
             question_type = "meaning"
 
-        correct_answer = (
-            _first_segment(entry["meaning"]) if question_type == "meaning"
-            else entry["reading"]
-        )
-
-        distractor_source = random.sample(distractor_pool, min(3, len(distractor_pool)))
-        distractors = [
-            _first_segment(d["meaning"]) if question_type == "meaning" else d["reading"]
-            for d in distractor_source
-        ]
+        if question_type == "meaning":
+            correct_answer = _first_segment(entry["meaning"])
+            distractors = _select_similar_distractors(
+                distractor_pool,
+                correct_category=entry["pos_category"],
+                get_category=lambda d: d["pos_category"],
+                get_value=lambda d: _first_segment(d["meaning"]),
+            )
+        else:
+            correct_answer = entry["reading"]
+            # Reading distractors are just phonetic strings — no shape
+            # giveaway concern, so plain random selection is fine here.
+            distractor_source = random.sample(distractor_pool, min(3, len(distractor_pool)))
+            distractors = [d["reading"] for d in distractor_source]
 
         items.append({
             "id": i + 1,
@@ -111,6 +158,11 @@ def build_kanji_items(level: str, count: int = None,
 
     For reading questions, prefers kun-reading (more distinguishing for
     learners) and falls back to on-reading if no kun-reading exists.
+
+    Distractors for "meaning" questions use classify_kanji_gloss() as a
+    heuristic stand-in for real POS data (which doesn't exist for kanji
+    glosses) — less reliable than the vocab path, but still avoids the
+    most obvious giveaways.
     """
     def primary_reading(entry: dict) -> str:
         if entry["kun_readings"]:
@@ -143,16 +195,19 @@ def build_kanji_items(level: str, count: int = None,
     items = []
     for i, entry in enumerate(correct_entries):
         question_type = "meaning" if i % 2 == 0 else "reading"
-        correct_answer = (
-            _first_segment(entry["meanings"]) if question_type == "meaning"
-            else primary_reading(entry)
-        )
 
-        distractor_source = random.sample(distractor_pool, min(3, len(distractor_pool)))
-        distractors = [
-            _first_segment(d["meanings"]) if question_type == "meaning" else primary_reading(d)
-            for d in distractor_source
-        ]
+        if question_type == "meaning":
+            correct_answer = _first_segment(entry["meanings"])
+            distractors = _select_similar_distractors(
+                distractor_pool,
+                correct_category=classify_kanji_gloss(correct_answer),
+                get_category=lambda d: classify_kanji_gloss(_first_segment(d["meanings"])),
+                get_value=lambda d: _first_segment(d["meanings"]),
+            )
+        else:
+            correct_answer = primary_reading(entry)
+            distractor_source = random.sample(distractor_pool, min(3, len(distractor_pool)))
+            distractors = [primary_reading(d) for d in distractor_source]
 
         items.append({
             "id": i + 1,
@@ -179,7 +234,10 @@ def _looks_like_english(text: str, target: str) -> bool:
     return not re.search(r"[\u3040-\u30ff\u4e00-\u9fff]", stripped)
 
 
-def assemble_final_questions(items: list[dict], sentences_by_id: dict) -> list[dict]:
+from services.furigana import annotate_sentence
+
+
+def assemble_final_questions(items: list[dict], sentences_by_id: dict, level: str) -> list[dict]:
     """
     Combines backend-computed correct answers/distractors with the model's
     generated sentences into final quiz question objects. Shuffles options
@@ -189,6 +247,10 @@ def assemble_final_questions(items: list[dict], sentences_by_id: dict) -> list[d
     (observed happening with Qwen despite explicit instructions), we fall
     back to a simple templated English explanation built from our own
     verified correct_answer, rather than showing the person broken output.
+
+    The sentence portion of the prompt is furigana-annotated: words harder
+    than the session's target level get reading assistance, everything else
+    (including the tested word itself) stays flat text.
     """
     questions = []
     for item in items:
@@ -215,9 +277,12 @@ def assemble_final_questions(items: list[dict], sentences_by_id: dict) -> list[d
         random.shuffle(options)
         correct_option = options.index(item["correct_answer"])
 
+        sentence_segments = annotate_sentence(sentence, level, target) if sentence else []
+
         questions.append({
             "id": item["id"],
-            "prompt": f"{sentence}\n{question_line}" if sentence else question_line,
+            "sentence_segments": sentence_segments,
+            "question_line": question_line,
             "options": options,
             "correct_option": correct_option,
             "explanation": explanation,

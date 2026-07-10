@@ -99,7 +99,7 @@ def generate():
         except GenerationError as e:
             return jsonify({"error": str(e)}), 502
 
-        questions = assemble_final_questions(items, sentences_by_id)
+        questions = assemble_final_questions(items, sentences_by_id, level)
 
     return jsonify({
         "level": level,
