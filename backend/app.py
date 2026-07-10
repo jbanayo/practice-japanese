@@ -32,6 +32,7 @@ from flask_cors import CORS
 from services.prompt_templates import build_generation_prompt, build_sentence_prompt
 from services.ollama_client import generate_questions, generate_sentences, GenerationError
 from services.question_builder import build_vocab_items, build_kanji_items, assemble_final_questions
+from services.reference_data import get_vocab_by_words, get_kanji_by_characters
 
 app = Flask(__name__)
 CORS(app)  # allow the frontend (different port during dev) to call this API
@@ -108,6 +109,46 @@ def generate():
         "count": len(questions),
         "questions": questions,
     })
+
+
+@app.route("/lookup", methods=["POST"])
+def lookup():
+    """
+    Plain data lookup for the flashcard deck — no LLM call, no generation,
+    just fetching verified reading/meaning for a list of already-known words
+    straight from the reference DB. Used for reviewing past words as a
+    swipeable deck, separate from the exam/quiz flow.
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    level = str(body.get("level", "")).upper()
+    category = str(body.get("category", "")).lower()
+    words = body.get("words") or []
+
+    if level not in VALID_LEVELS:
+        return jsonify({"error": f"Invalid level. Must be one of {sorted(VALID_LEVELS)}"}), 400
+    if category not in {"vocabulary", "kanji"}:
+        return jsonify({"error": "category must be 'vocabulary' or 'kanji'"}), 400
+    if not words:
+        return jsonify({"cards": []})
+
+    if category == "vocabulary":
+        entries = get_vocab_by_words(level, words)
+        cards = [
+            {"word": e["word"], "reading": e["reading"], "meaning": e["meaning"]}
+            for e in entries
+        ]
+    else:
+        entries = get_kanji_by_characters(level, words)
+        cards = [
+            {
+                "word": e["character"],
+                "reading": e["kun_readings"] or e["on_readings"],
+                "meaning": e["meanings"],
+            }
+            for e in entries
+        ]
+
+    return jsonify({"cards": cards})
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { updateWordStat } from '../db.js'
+import { updateWordStat, ensureWordSeen } from '../db.js'
+import ConfirmDialog from './ConfirmDialog.jsx'
 
 /** Shuffles a question's options and recomputes correct_option so the
  * answer isn't always in the same button position on retest rounds. */
@@ -17,7 +18,7 @@ function shuffleOptions(question) {
   }
 }
 
-export default function QuizScreen({ questions, config, onComplete }) {
+export default function QuizScreen({ questions, config, onComplete, onQuit }) {
   const [round, setRound] = useState(1)
   const [queue, setQueue] = useState(questions)
   const [pointer, setPointer] = useState(0)
@@ -25,6 +26,7 @@ export default function QuizScreen({ questions, config, onComplete }) {
   const [isAnswered, setIsAnswered] = useState(false)
   const [wrongThisRound, setWrongThisRound] = useState([])
   const [correctFirstRound, setCorrectFirstRound] = useState(0)
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false)
 
   const current = queue[pointer]
   const isCorrect = selected !== null && selected === current.correct_option
@@ -79,9 +81,25 @@ export default function QuizScreen({ questions, config, onComplete }) {
     setRound((r) => r + 1)
   }
 
+  async function handleConfirmQuit() {
+    // The AI already spent real generation time on ALL of the original
+    // batch (pre-generated upfront), not just what's left in the current
+    // retry queue — so mark every original word as "seen" to avoid a
+    // future "Generate New" wastefully re-selecting them. This does NOT
+    // count as an answered review (see ensureWordSeen), so mastery stats
+    // and "Review Past Questions" eligibility stay accurate.
+    await Promise.all(
+      questions.map((q) => ensureWordSeen(config.category, config.level, q.topic))
+    )
+    onQuit()
+  }
+
   return (
     <div className="panel quiz-panel">
       <div className="quiz-meta">
+        <button className="quiz-back-link" onClick={() => setShowQuitConfirm(true)}>
+          ← Back
+        </button>
         <span>Round {round}</span>
         <span>{pointer + 1} / {queue.length}</span>
       </div>
@@ -138,6 +156,16 @@ export default function QuizScreen({ questions, config, onComplete }) {
             Next ▸
           </button>
         </div>
+      )}
+
+      {showQuitConfirm && (
+        <ConfirmDialog
+          title="Quit this session?"
+          message="Your progress on this session will be lost — it won't count toward your streak or history. The words already generated will still be remembered, though, so nothing goes to waste."
+          confirmLabel="Quit"
+          onConfirm={handleConfirmQuit}
+          onCancel={() => setShowQuitConfirm(false)}
+        />
       )}
     </div>
   )

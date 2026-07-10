@@ -3,6 +3,8 @@ import ConfigPanel from './components/ConfigPanel.jsx'
 import LoadingScreen from './components/LoadingScreen.jsx'
 import QuizScreen from './components/QuizScreen.jsx'
 import SessionComplete from './components/SessionComplete.jsx'
+import StatsPanel from './components/StatsPanel.jsx'
+import FlashcardDeck from './components/FlashcardDeck.jsx'
 import { generateQuestions, ApiError } from './api.js'
 import { getStreak, recordActivityToday, saveSession, getSeenWords, getWordsForReview } from './db.js'
 
@@ -11,6 +13,8 @@ const STAGE = {
   LOADING: 'loading',
   QUIZ: 'quiz',
   COMPLETE: 'complete',
+  STATS: 'stats',
+  FLASHCARDS: 'flashcards',
 }
 
 const MIN_WORDS_FOR_REVIEW = 5 // below this, review mode isn't very useful yet
@@ -74,6 +78,12 @@ export default function App() {
     setStage(STAGE.COMPLETE)
   }
 
+  // Quitting mid-session: no session record, no streak credit — but word
+  // generation itself is already preserved by QuizScreen before this fires.
+  function handleQuizQuit() {
+    setStage(STAGE.CONFIG)
+  }
+
   return (
     <div className="genkou-bg">
       <div className="app-shell">
@@ -89,14 +99,20 @@ export default function App() {
         </header>
 
         {stage === STAGE.CONFIG && (
-          <ConfigPanel
-            config={config}
-            onChange={setConfig}
-            onGenerate={handleGenerate}
-            isLoading={false}
-            error={error}
-            reviewAvailable={reviewAvailable}
-          />
+          <>
+            <ConfigPanel
+              config={config}
+              onChange={setConfig}
+              onGenerate={handleGenerate}
+              isLoading={false}
+              error={error}
+              reviewAvailable={reviewAvailable}
+            />
+            <div className="menu-links">
+              <span className="back-link" onClick={() => setStage(STAGE.STATS)}>View Stats</span>
+              <span className="back-link" onClick={() => setStage(STAGE.FLASHCARDS)}>Flashcard Deck</span>
+            </div>
+          </>
         )}
 
         {stage === STAGE.LOADING && <LoadingScreen />}
@@ -106,6 +122,7 @@ export default function App() {
             questions={questions}
             config={config}
             onComplete={handleQuizComplete}
+            onQuit={handleQuizQuit}
           />
         )}
 
@@ -115,6 +132,14 @@ export default function App() {
             streak={streak}
             onRestart={() => setStage(STAGE.CONFIG)}
           />
+        )}
+
+        {stage === STAGE.STATS && (
+          <StatsPanel onBack={() => setStage(STAGE.CONFIG)} />
+        )}
+
+        {stage === STAGE.FLASHCARDS && (
+          <FlashcardDeck onBack={() => setStage(STAGE.CONFIG)} />
         )}
       </div>
     </div>

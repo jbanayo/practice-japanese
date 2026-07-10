@@ -121,13 +121,52 @@ export async function getSeenWords(category, level) {
 }
 
 /**
+ * Marks a word as "seen" WITHOUT counting it as an actual answered review —
+ * used when a session is quit early. The AI already spent real generation
+ * time/compute on this word, so we don't want a future "Generate New" to
+ * waste another call re-selecting it. But since it was never actually
+ * answered, it must NOT count toward mastery stats (timesReviewed stays 0,
+ * so it's correctly excluded from "Review Past Questions" candidates,
+ * which only makes sense for words you've actually attempted).
+ * Does nothing if a real stats record already exists for this word.
+ */
+export async function ensureWordSeen(category, level, word) {
+  const db = await openDB()
+  const key = `${category}:${level}:${word}`
+  const tx = db.transaction('wordStats', 'readwrite')
+  const store = tx.objectStore('wordStats')
+  const existing = await promisifyRequest(store.get(key))
+
+  if (!existing) {
+    store.put({
+      key,
+      category,
+      level,
+      word,
+      timesReviewed: 0,
+      timesCorrectFirstTry: 0,
+      lastReviewed: null,
+    })
+  }
+
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+/**
  * Picks words for "Review" mode: weakest mastery first (lowest correct
  * rate), then longest-since-last-seen as a tiebreaker. Simple spaced
  * repetition — not fancy, but a real foundation to build on later.
+ * Only considers words that have actually been answered at least once
+ * (timesReviewed > 0) — words merely "seen" via a quit don't qualify.
  */
 export async function getWordsForReview(category, level, count) {
   const all = await getAllWordStats()
-  const candidates = all.filter((w) => w.category === category && w.level === level)
+  const candidates = all.filter(
+    (w) => w.category === category && w.level === level && w.timesReviewed > 0
+  )
 
   candidates.sort((a, b) => {
     const rateA = a.timesCorrectFirstTry / a.timesReviewed
@@ -137,6 +176,35 @@ export async function getWordsForReview(category, level, count) {
   })
 
   return candidates.slice(0, count).map((w) => w.word)
+}
+
+/** Words actually answered at least once (for the flashcard deck — reviewing
+ * a word you were only ever "shown" via a quit isn't a meaningful flashcard). */
+export async function getReviewedWords(category, level) {
+  const all = await getAllWordStats()
+  return all
+    .filter((w) => w.category === category && w.level === level && w.timesReviewed > 0)
+    .map((w) => w.word)
+}
+
+/**
+ * Simple stats foundation: unique word count per level, split by category.
+ * Returns { N5: { vocabulary: 12, kanji: 4 }, N4: { ... }, ... }
+ */
+export async function getWordCountsByLevel() {
+  const all = await getAllWordStats()
+  const counts = {}
+  for (const level of ['N5', 'N4', 'N3', 'N2', 'N1']) {
+    counts[level] = { vocabulary: 0, kanji: 0 }
+  }
+
+  for (const w of all) {
+    if (w.timesReviewed > 0 && counts[w.level] && (w.category === 'vocabulary' || w.category === 'kanji')) {
+      counts[w.level][w.category] += 1
+    }
+  }
+
+  return counts
 }
 
 // --- Streak --------------------------------------------------------------
