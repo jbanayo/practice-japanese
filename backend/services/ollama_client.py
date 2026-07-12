@@ -8,12 +8,33 @@ import json
 import re
 import requests
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_GENERATE_URL = "http://localhost:11434/api/generate"
+OLLAMA_TAGS_URL = "http://localhost:11434/api/tags"
 DEFAULT_MODEL = "qwen2.5:7b-instruct"
+
+# Backwards-compat alias (used elsewhere in this file below)
+OLLAMA_URL = OLLAMA_GENERATE_URL
 
 
 class GenerationError(Exception):
     pass
+
+
+def list_available_models() -> list[str]:
+    """
+    Returns the list of model names currently pulled/available in the
+    person's local Ollama install (e.g. ["qwen2.5:7b-instruct", "llama3:8b"]).
+    Returns an empty list (rather than raising) if Ollama isn't reachable —
+    the settings UI can show a clear "Ollama not running" message either way.
+    """
+    try:
+        response = requests.get(OLLAMA_TAGS_URL, timeout=10)
+        response.raise_for_status()
+    except requests.exceptions.RequestException:
+        return []
+
+    data = response.json()
+    return [m["name"] for m in data.get("models", [])]
 
 
 def _strip_code_fences(text: str) -> str:

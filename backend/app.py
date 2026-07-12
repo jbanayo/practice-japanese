@@ -30,9 +30,13 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 from services.prompt_templates import build_generation_prompt, build_sentence_prompt
-from services.ollama_client import generate_questions, generate_sentences, GenerationError
+from services.ollama_client import (
+    generate_questions, generate_sentences, list_available_models,
+    GenerationError, DEFAULT_MODEL,
+)
 from services.question_builder import build_vocab_items, build_kanji_items, assemble_final_questions
 from services.reference_data import get_vocab_by_words, get_kanji_by_characters
+from services.scenario_data import get_random_scenario, get_scenario_by_id, list_scenario_summaries
 
 app = Flask(__name__)
 CORS(app)  # allow the frontend (different port during dev) to call this API
@@ -48,6 +52,19 @@ def health():
     return jsonify({"status": "ok"})
 
 
+@app.route("/models", methods=["GET"])
+def models():
+    """Lists locally-available Ollama models, for the Settings page's model
+    picker. Returns an empty list (not an error) if Ollama isn't reachable —
+    the frontend shows an appropriate message either way."""
+    available = list_available_models()
+    return jsonify({
+        "available_models": available,
+        "default_model": DEFAULT_MODEL,
+        "ollama_reachable": len(available) > 0,
+    })
+
+
 @app.route("/generate", methods=["POST"])
 def generate():
     body = request.get_json(force=True, silent=True) or {}
@@ -58,6 +75,7 @@ def generate():
     mode = str(body.get("mode", "new")).lower()
     exclude_words = body.get("exclude_words") or []
     review_words = body.get("review_words") or []
+    model = str(body.get("model") or DEFAULT_MODEL)
 
     # --- validation ---
     if level not in VALID_LEVELS:
@@ -74,7 +92,7 @@ def generate():
     if category == "grammar":
         prompt = build_generation_prompt(level=level, category=category, count=count)
         try:
-            questions = generate_questions(prompt=prompt, expected_count=count)
+            questions = generate_questions(prompt=prompt, expected_count=count, model=model)
         except GenerationError as e:
             return jsonify({"error": str(e)}), 502
 
@@ -96,7 +114,7 @@ def generate():
 
         prompt = build_sentence_prompt(level=level, category=category, items=items)
         try:
-            sentences_by_id = generate_sentences(prompt=prompt)
+            sentences_by_id = generate_sentences(prompt=prompt, model=model)
         except GenerationError as e:
             return jsonify({"error": str(e)}), 502
 
@@ -106,6 +124,7 @@ def generate():
         "level": level,
         "category": category,
         "mode": mode,
+        "model_used": model,
         "count": len(questions),
         "questions": questions,
     })
@@ -149,6 +168,31 @@ def lookup():
         ]
 
     return jsonify({"cards": cards})
+
+
+@app.route("/scenarios", methods=["GET"])
+def scenarios():
+    """Lightweight list of available conversation scenarios (id/title/level only)."""
+    return jsonify({"scenarios": list_scenario_summaries()})
+
+
+@app.route("/scenarios/random", methods=["GET"])
+def random_scenario():
+    """
+    Returns one full curated scenario at random. NOT an LLM call — this is
+    pure data selection from a hand-verified bank (see services/scenario_data.py).
+    Correctness here doesn't depend on the AI at all, unlike /generate.
+    """
+    scenario = get_random_scenario()
+    return jsonify(scenario)
+
+
+@app.route("/scenarios/<scenario_id>", methods=["GET"])
+def scenario_by_id(scenario_id):
+    scenario = get_scenario_by_id(scenario_id)
+    if scenario is None:
+        return jsonify({"error": f"No scenario found with id '{scenario_id}'"}), 404
+    return jsonify(scenario)
 
 
 if __name__ == "__main__":

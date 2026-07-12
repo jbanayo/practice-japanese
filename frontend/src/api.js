@@ -2,7 +2,7 @@ const API_BASE = 'http://localhost:5000'
 
 export class ApiError extends Error {}
 
-export async function generateQuestions({ level, category, count, mode, excludeWords, reviewWords }) {
+export async function generateQuestions({ level, category, count, mode, excludeWords, reviewWords, model }) {
   const response = await fetch(`${API_BASE}/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -13,6 +13,7 @@ export async function generateQuestions({ level, category, count, mode, excludeW
       mode,
       exclude_words: excludeWords,
       review_words: reviewWords,
+      model,
     }),
   })
 
@@ -22,6 +23,15 @@ export async function generateQuestions({ level, category, count, mode, excludeW
     throw new ApiError(data.error || `Request failed with status ${response.status}`)
   }
 
+  return data
+}
+
+export async function getAvailableModels() {
+  const response = await fetch(`${API_BASE}/models`)
+  const data = await response.json()
+  if (!response.ok) {
+    throw new ApiError(data.error || `Request failed with status ${response.status}`)
+  }
   return data
 }
 
@@ -39,4 +49,13 @@ export async function lookupWords({ level, category, words }) {
   }
 
   return data.cards
+}
+
+export async function getRandomScenario() {
+  const response = await fetch(`${API_BASE}/scenarios/random`)
+  const data = await response.json()
+  if (!response.ok) {
+    throw new ApiError(data.error || `Request failed with status ${response.status}`)
+  }
+  return data
 }

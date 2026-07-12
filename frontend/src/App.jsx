@@ -5,8 +5,10 @@ import QuizScreen from './components/QuizScreen.jsx'
 import SessionComplete from './components/SessionComplete.jsx'
 import StatsPanel from './components/StatsPanel.jsx'
 import FlashcardDeck from './components/FlashcardDeck.jsx'
+import SettingsPanel from './components/SettingsPanel.jsx'
+import ScenarioMode from './components/ScenarioMode.jsx'
 import { generateQuestions, ApiError } from './api.js'
-import { getStreak, recordActivityToday, saveSession, getSeenWords, getWordsForReview } from './db.js'
+import { getStreak, recordActivityToday, saveSession, getSeenWords, getWordsForReview, getSelectedModel } from './db.js'
 
 const STAGE = {
   CONFIG: 'config',
@@ -15,6 +17,20 @@ const STAGE = {
   COMPLETE: 'complete',
   STATS: 'stats',
   FLASHCARDS: 'flashcards',
+  SETTINGS: 'settings',
+  SCENARIO: 'scenario',
+}
+
+// Maps every stage to one of the three breadcrumb labels in the top bar
+const BREADCRUMB_FOR_STAGE = {
+  [STAGE.CONFIG]: 'Setup',
+  [STAGE.LOADING]: 'Session',
+  [STAGE.QUIZ]: 'Session',
+  [STAGE.SCENARIO]: 'Session',
+  [STAGE.COMPLETE]: 'Review',
+  [STAGE.STATS]: 'Review',
+  [STAGE.FLASHCARDS]: 'Review',
+  [STAGE.SETTINGS]: 'Review',
 }
 
 const MIN_WORDS_FOR_REVIEW = 5 // below this, review mode isn't very useful yet
@@ -27,9 +43,12 @@ export default function App() {
   const [streak, setStreak] = useState(null)
   const [summary, setSummary] = useState(null)
   const [reviewAvailable, setReviewAvailable] = useState(false)
+  const [modelUsed, setModelUsed] = useState(null)
+  const [selectedModelLabel, setSelectedModelLabel] = useState(null)
 
   useEffect(() => {
     getStreak().then(setStreak)
+    getSelectedModel().then((m) => setSelectedModelLabel(m || 'qwen2.5:7b-instruct'))
   }, [])
 
   // Check whether review mode has enough words to be worth offering,
@@ -46,7 +65,11 @@ export default function App() {
     setError(null)
     setStage(STAGE.LOADING)
     try {
-      let requestParams = { level: config.level, category: config.category, count: config.count, mode: config.mode }
+      const selectedModel = await getSelectedModel()
+      let requestParams = {
+        level: config.level, category: config.category, count: config.count, mode: config.mode,
+        model: selectedModel || undefined, // undefined lets the backend use its own default
+      }
 
       if (config.mode === 'review') {
         const reviewWords = await getWordsForReview(config.category, config.level, config.count)
@@ -58,6 +81,7 @@ export default function App() {
 
       const data = await generateQuestions(requestParams)
       setQuestions(data.questions)
+      setModelUsed(data.model_used)
       setStage(STAGE.QUIZ)
     } catch (e) {
       const message = e instanceof ApiError
@@ -84,64 +108,112 @@ export default function App() {
     setStage(STAGE.CONFIG)
   }
 
+  const currentBreadcrumb = BREADCRUMB_FOR_STAGE[stage]
+
   return (
     <div className="genkou-bg">
-      <div className="app-shell">
-        <header className="app-header">
-          <h1 className="title-jp">漢字道場</h1>
-          <div className="title-sub">JLPT Adaptive Practice</div>
-          {streak && streak.currentStreak > 0 && stage === STAGE.CONFIG && (
-            <div className="streak-badge">
-              <span className="flame">🔥</span>
-              {streak.currentStreak} day streak
+      <header className="top-bar">
+        <div className="top-bar-inner">
+          <div className="top-bar-brand">
+            <span className="top-bar-logo">STUDY.JP</span>
+            <span className="top-bar-jp">日本語能力試験</span>
+          </div>
+          <div className="top-bar-nav">
+            {['Setup', 'Session', 'Review'].map((label, i) => (
+              <span key={label} style={{ display: 'contents' }}>
+                {i > 0 && <span className="sep">/</span>}
+                <button className={currentBreadcrumb === label ? 'active' : ''} disabled>
+                  {label}
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      {stage === STAGE.CONFIG ? (
+        <div className="setup-layout">
+          <div className="setup-title-block">
+            <p className="eyebrow">▸ New Session</p>
+            <h1>Configure<br />your line.</h1>
+            <p>Pick a level, category, and size. Questions are generated fresh by a local model — no fixed bank, no accounts.</p>
+
+            <div className="setup-current-badge">
+              <span className="badge-circle">{config.level}</span>
+              <div className="badge-label">
+                Current Level
+                <div className="badge-sub">{config.category.toUpperCase()} · {String(config.count).padStart(2, '0')} Q</div>
+              </div>
             </div>
-          )}
-        </header>
 
-        {stage === STAGE.CONFIG && (
-          <>
-            <ConfigPanel
-              config={config}
-              onChange={setConfig}
-              onGenerate={handleGenerate}
-              isLoading={false}
-              error={error}
-              reviewAvailable={reviewAvailable}
-            />
-            <div className="menu-links">
-              <span className="back-link" onClick={() => setStage(STAGE.STATS)}>View Stats</span>
-              <span className="back-link" onClick={() => setStage(STAGE.FLASHCARDS)}>Flashcard Deck</span>
-            </div>
-          </>
-        )}
+            {streak && streak.currentStreak > 0 && (
+              <div className="streak-badge" style={{ marginTop: 20 }}>
+                <span className="flame">🔥</span>
+                {streak.currentStreak} day streak
+              </div>
+            )}
+          </div>
 
-        {stage === STAGE.LOADING && <LoadingScreen />}
-
-        {stage === STAGE.QUIZ && (
-          <QuizScreen
-            questions={questions}
+          <ConfigPanel
             config={config}
-            onComplete={handleQuizComplete}
-            onQuit={handleQuizQuit}
+            onChange={setConfig}
+            onGenerate={handleGenerate}
+            onConverse={() => setStage(STAGE.SCENARIO)}
+            isLoading={false}
+            error={error}
+            reviewAvailable={reviewAvailable}
+            modelLabel={selectedModelLabel}
+            onOpenStats={() => setStage(STAGE.STATS)}
+            onOpenFlashcards={() => setStage(STAGE.FLASHCARDS)}
+            onOpenSettings={() => setStage(STAGE.SETTINGS)}
           />
-        )}
+        </div>
+      ) : (
+        <div className="app-shell">
+          {stage === STAGE.LOADING && <LoadingScreen />}
 
-        {stage === STAGE.COMPLETE && (
-          <SessionComplete
-            summary={summary}
-            streak={streak}
-            onRestart={() => setStage(STAGE.CONFIG)}
-          />
-        )}
+          {stage === STAGE.QUIZ && (
+            <QuizScreen
+              questions={questions}
+              config={config}
+              modelUsed={modelUsed}
+              onComplete={handleQuizComplete}
+              onQuit={handleQuizQuit}
+            />
+          )}
 
-        {stage === STAGE.STATS && (
-          <StatsPanel onBack={() => setStage(STAGE.CONFIG)} />
-        )}
+          {stage === STAGE.COMPLETE && (
+            <SessionComplete
+              summary={summary}
+              streak={streak}
+              onRestart={() => setStage(STAGE.CONFIG)}
+            />
+          )}
 
-        {stage === STAGE.FLASHCARDS && (
-          <FlashcardDeck onBack={() => setStage(STAGE.CONFIG)} />
-        )}
-      </div>
+          {stage === STAGE.STATS && (
+            <StatsPanel onBack={() => setStage(STAGE.CONFIG)} />
+          )}
+
+          {stage === STAGE.FLASHCARDS && (
+            <FlashcardDeck onBack={() => setStage(STAGE.CONFIG)} />
+          )}
+
+          {stage === STAGE.SETTINGS && (
+            <SettingsPanel onBack={() => setStage(STAGE.CONFIG)} />
+          )}
+
+          {stage === STAGE.SCENARIO && (
+            <ScenarioMode onBack={() => setStage(STAGE.CONFIG)} />
+          )}
+        </div>
+      )}
+
+      <footer className="bottom-bar">
+        <div className="bottom-bar-inner">
+          <span>JLPT.STUDY · LOCAL-FIRST</span>
+          <span>v0.1 · {currentBreadcrumb?.toUpperCase()}</span>
+        </div>
+      </footer>
     </div>
   )
 }

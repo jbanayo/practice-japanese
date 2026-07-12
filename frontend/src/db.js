@@ -2,23 +2,27 @@
  * Local persistence layer using IndexedDB (not localStorage — gives us more
  * headroom and structured queries, still 100% local/offline).
  *
- * Three stores, each with bounded growth:
- * - sessions:   one small record per completed quiz session (date, level,
- *               category, score, attempts). Grows with usage but each
- *               record is tiny (~200 bytes), so even years of daily use
- *               stays well under a few MB.
- * - wordStats:  ONE record per unique word/kanji ever seen. Bounded by the
- *               size of the reference dataset (~8,000 vocab + ~2,200 kanji),
- *               NOT by how often you use the app. Worst case ever: ~10,000
- *               small records, still under ~2MB fully populated.
- * - meta:       tiny singleton records like the current streak.
+ * Four stores, each with bounded growth:
+ * - sessions:       one small record per completed quiz session (date, level,
+ *                   category, score, attempts). Grows with usage but each
+ *                   record is tiny (~200 bytes), so even years of daily use
+ *                   stays well under a few MB.
+ * - wordStats:      ONE record per unique word/kanji ever seen. Bounded by the
+ *                   size of the reference dataset (~8,000 vocab + ~2,200 kanji),
+ *                   NOT by how often you use the app. Worst case ever: ~10,000
+ *                   small records, still under ~2MB fully populated.
+ * - meta:           tiny singleton records like the current streak and the
+ *                   selected model setting.
+ * - qualityRatings: one small record per optional "rate this question"
+ *                   submission (model, rating). Grows with usage, but each
+ *                   record is tiny and this is opt-in per question.
  *
  * Question generation caching (if added later) is intentionally NOT in this
  * file — that would be unbounded and belongs in its own clearable store.
  */
 
 const DB_NAME = 'jlpt_exam_db'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -35,6 +39,9 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains('meta')) {
         db.createObjectStore('meta', { keyPath: 'key' })
+      }
+      if (!db.objectStoreNames.contains('qualityRatings')) {
+        db.createObjectStore('qualityRatings', { keyPath: 'id', autoIncrement: true })
       }
     }
 
@@ -252,6 +259,91 @@ export async function recordActivityToday() {
   store.put(record)
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve(record)
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+// --- Settings (selected model) ------------------------------------------
+
+export async function getSelectedModel() {
+  const db = await openDB()
+  const tx = db.transaction('meta', 'readonly')
+  const record = await promisifyRequest(tx.objectStore('meta').get('selectedModel'))
+  return record ? record.value : null
+}
+
+export async function setSelectedModel(modelName) {
+  const db = await openDB()
+  const tx = db.transaction('meta', 'readwrite')
+  tx.objectStore('meta').put({ key: 'selectedModel', value: modelName })
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+// --- Quality ratings (optional per-question AI-output feedback) --------
+
+export const RATING = {
+  VERY_WRONG: 'very_wrong',
+  SLIGHTLY_WRONG: 'slightly_wrong',
+  OKAY: 'okay',
+}
+
+/**
+ * Records an optional quality rating for a single generated question,
+ * tagged with which model produced it — so Stats can show a breakdown of
+ * generation quality per model over time.
+ */
+export async function saveQualityRating({ model, category, level, word, rating }) {
+  const db = await openDB()
+  const tx = db.transaction('qualityRatings', 'readwrite')
+  tx.objectStore('qualityRatings').add({
+    date: new Date().toISOString(),
+    model: model || 'unknown',
+    category,
+    level,
+    word,
+    rating,
+  })
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+/**
+ * Aggregates quality ratings by model, for the Stats page.
+ * Returns { "qwen2.5:7b-instruct": { very_wrong: 2, slightly_wrong: 5, okay: 20, total: 27 }, ... }
+ */
+export async function getQualityStatsByModel() {
+  const db = await openDB()
+  const tx = db.transaction('qualityRatings', 'readonly')
+  const all = await promisifyRequest(tx.objectStore('qualityRatings').getAll())
+
+  const byModel = {}
+  for (const r of all) {
+    if (!byModel[r.model]) {
+      byModel[r.model] = { very_wrong: 0, slightly_wrong: 0, okay: 0, total: 0 }
+    }
+    byModel[r.model][r.rating] = (byModel[r.model][r.rating] || 0) + 1
+    byModel[r.model].total += 1
+  }
+  return byModel
+}
+
+// --- Reset / clear all data ---------------------------------------------
+
+/** Wipes every store — used by the Settings "Reset" button. Irreversible. */
+export async function clearAllData() {
+  const db = await openDB()
+  const storeNames = ['sessions', 'wordStats', 'meta', 'qualityRatings']
+  const tx = db.transaction(storeNames, 'readwrite')
+  for (const name of storeNames) {
+    tx.objectStore(name).clear()
+  }
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error)
   })
 }

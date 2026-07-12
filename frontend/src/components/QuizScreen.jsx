@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { updateWordStat, ensureWordSeen } from '../db.js'
+import { updateWordStat, ensureWordSeen, saveQualityRating, RATING } from '../db.js'
 import ConfirmDialog from './ConfirmDialog.jsx'
 
 /** Shuffles a question's options and recomputes correct_option so the
@@ -18,7 +18,7 @@ function shuffleOptions(question) {
   }
 }
 
-export default function QuizScreen({ questions, config, onComplete, onQuit }) {
+export default function QuizScreen({ questions, config, modelUsed, onComplete, onQuit }) {
   const [round, setRound] = useState(1)
   const [queue, setQueue] = useState(questions)
   const [pointer, setPointer] = useState(0)
@@ -27,6 +27,7 @@ export default function QuizScreen({ questions, config, onComplete, onQuit }) {
   const [wrongThisRound, setWrongThisRound] = useState([])
   const [correctFirstRound, setCorrectFirstRound] = useState(0)
   const [showQuitConfirm, setShowQuitConfirm] = useState(false)
+  const [ratedIds, setRatedIds] = useState(new Set())
 
   const current = queue[pointer]
   const isCorrect = selected !== null && selected === current.correct_option
@@ -94,6 +95,17 @@ export default function QuizScreen({ questions, config, onComplete, onQuit }) {
     onQuit()
   }
 
+  async function handleRate(rating) {
+    await saveQualityRating({
+      model: modelUsed,
+      category: config.category,
+      level: config.level,
+      word: current.topic,
+      rating,
+    })
+    setRatedIds((prev) => new Set(prev).add(current.id))
+  }
+
   return (
     <div className="panel quiz-panel">
       <div className="quiz-meta">
@@ -152,6 +164,26 @@ export default function QuizScreen({ questions, config, onComplete, onQuit }) {
         <div className={`quiz-feedback ${isCorrect ? 'is-correct' : 'is-wrong'}`}>
           <strong>{isCorrect ? '正解 — Correct!' : '不正解 — Incorrect'}</strong>
           <p>{current.explanation}</p>
+
+          {ratedIds.has(current.id) ? (
+            <div className="rating-thanks">Thanks for the feedback</div>
+          ) : (
+            <div className="rating-row">
+              <span className="rating-label">Rate this question (optional):</span>
+              <div className="rating-buttons">
+                <button className="rating-button rating-very-wrong" onClick={() => handleRate(RATING.VERY_WRONG)}>
+                  Very Wrong
+                </button>
+                <button className="rating-button rating-slightly-wrong" onClick={() => handleRate(RATING.SLIGHTLY_WRONG)}>
+                  Slightly Wrong
+                </button>
+                <button className="rating-button rating-okay" onClick={() => handleRate(RATING.OKAY)}>
+                  It's Okay
+                </button>
+              </div>
+            </div>
+          )}
+
           <button className="generate-button" onClick={handleNext}>
             Next ▸
           </button>

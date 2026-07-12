@@ -1,109 +1,118 @@
 const LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1']
 
 const CATEGORIES = [
-  { id: 'vocabulary', label: 'Vocabulary', jp: '語彙', enabled: true },
-  { id: 'kanji', label: 'Kanji', jp: '漢字', enabled: true },
-  { id: 'grammar', label: 'Grammar', jp: '文法', enabled: false },
+  { id: 'vocabulary', label: 'Vocabulary', enabled: true },
+  { id: 'kanji', label: 'Kanji', enabled: true },
+  { id: 'grammar', label: 'Grammar', enabled: false },
 ]
 
 const SESSION_SIZES = [5, 10, 15]
 
-function StampOption({ selected, disabled, onClick, children }) {
+export default function ConfigPanel({
+  config, onChange, onGenerate, onConverse, isLoading, error,
+  reviewAvailable, modelLabel, onOpenStats, onOpenFlashcards, onOpenSettings,
+}) {
   return (
-    <button
-      type="button"
-      className={`stamp-option${selected ? ' selected' : ''}`}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      <span className="stamp-mark" />
-      {children}
-    </button>
-  )
-}
-
-export default function ConfigPanel({ config, onChange, onGenerate, isLoading, error, reviewAvailable }) {
-  return (
-    <div className="panel">
-      <div className="panel-section">
-        <div className="panel-label">Mode</div>
-        <div className="stamp-grid">
-          <StampOption
-            selected={config.mode === 'new'}
-            onClick={() => onChange({ ...config, mode: 'new' })}
-          >
-            Generate New
-          </StampOption>
-          <StampOption
-            selected={config.mode === 'review'}
-            disabled={!reviewAvailable}
-            onClick={() => onChange({ ...config, mode: 'review' })}
-          >
-            Review Past Questions
-            {!reviewAvailable && <span className="coming-soon-tag">NONE YET</span>}
-          </StampOption>
-        </div>
-      </div>
-
-      <div className="panel-section">
-        <div className="panel-label">JLPT Level</div>
-        <div className="stamp-grid">
+    <div className="setup-controls">
+      <section>
+        <div className="setup-section-head">Level <span className="jp">/ レベル</span></div>
+        <div className="level-pill-row">
           {LEVELS.map((level) => (
-            <StampOption
+            <button
               key={level}
-              selected={config.level === level}
+              type="button"
+              className={`level-pill${config.level === level ? ' active' : ''}`}
               onClick={() => onChange({ ...config, level })}
             >
               {level}
-            </StampOption>
+            </button>
           ))}
         </div>
-      </div>
+      </section>
 
-      <div className="panel-section">
-        <div className="panel-label">Category</div>
-        <div className="stamp-grid">
+      <section>
+        <div className="setup-section-head">Category <span className="jp">/ カテゴリ</span></div>
+        <div className="category-tabs">
           {CATEGORIES.map((cat) => (
-            <StampOption
+            <button
               key={cat.id}
-              selected={config.category === cat.id}
+              type="button"
               disabled={!cat.enabled}
+              className={`category-tab${config.category === cat.id ? ' active' : ''}`}
               onClick={() => onChange({ ...config, category: cat.id })}
             >
-              {cat.label}
-              <span className="jp">{cat.jp}</span>
-              {!cat.enabled && <span className="coming-soon-tag">SOON</span>}
-            </StampOption>
+              {cat.label.toUpperCase()}
+              {!cat.enabled && <span className="tag-soon">SOON</span>}
+            </button>
           ))}
         </div>
-      </div>
+      </section>
 
-      <div className="panel-section">
-        <div className="panel-label">Session Size</div>
-        <div className="stamp-grid">
+      <section>
+        <div className="setup-section-head">Session Size <span className="jp">/ サイズ</span></div>
+        <div className="size-row">
           {SESSION_SIZES.map((size) => (
-            <StampOption
+            <button
               key={size}
-              selected={config.count === size}
+              type="button"
+              className={`size-option${config.count === size ? ' active' : ''}`}
               onClick={() => onChange({ ...config, count: size })}
             >
-              {size} questions
-            </StampOption>
+              {String(size).padStart(2, '0')}
+            </button>
           ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="setup-section-head">Mode <span className="jp">/ モード</span></div>
+        <div className="mode-row">
+          <button
+            type="button"
+            className={`mode-option${config.mode === 'new' ? ' active' : ''}`}
+            onClick={() => onChange({ ...config, mode: 'new' })}
+          >
+            <span className="dot" />
+            <span className="mode-label">Generate New</span>
+          </button>
+          <button
+            type="button"
+            className={`mode-option${config.mode === 'review' ? ' active' : ''}`}
+            disabled={!reviewAvailable}
+            onClick={() => onChange({ ...config, mode: 'review' })}
+          >
+            <span className="dot" />
+            <span className="mode-label">Review Past</span>
+            {!reviewAvailable && <span className="mode-tag-none">NONE YET</span>}
+          </button>
+        </div>
+      </section>
+
+      <div className="start-row">
+        <button className="start-button" onClick={onGenerate} disabled={isLoading}>
+          {isLoading ? 'Generating…' : <>START ▸ <span className="jp">はじめる</span> ▸</>}
+        </button>
+        <div className="model-status">
+          <div className="status-line">
+            <span className="status-dot" />
+            MODEL · {modelLabel || 'default'}
+          </div>
+          <div className="status-sub">ready · local</div>
         </div>
       </div>
 
-      <button
-        className="generate-button"
-        onClick={onGenerate}
-        disabled={isLoading}
-      >
-        {isLoading
-          ? 'Generating…'
-          : config.mode === 'review' ? '復習 — Review' : '始める — Generate'}
+      <button className="converse-button" onClick={onConverse}>
+        CONVERSE ▸ <span className="jp">かいわ</span> ▸
+        <span className="converse-hint">Practice with tutor bot</span>
       </button>
 
       {error && <div className="error-banner">{error}</div>}
+
+      <div className="menu-links">
+        <span className="back-link" onClick={onOpenStats}>View Stats</span>
+        <span className="back-link" onClick={onOpenFlashcards}>Flashcard Deck</span>
+        <span className="back-link" onClick={onOpenSettings}>Settings</span>
+      </div>
     </div>
   )
 }
