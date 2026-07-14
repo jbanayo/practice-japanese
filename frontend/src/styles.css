@@ -1,5 +1,5 @@
 :root {
-  /* --- Color tokens (transit-signage aesthetic) --- */
+  /* --- Color tokens (transit-signage aesthetic, default theme) --- */
   --ink: #1a1a1a;
   --paper: #f4f2ee;
   --paper-line: #dcd8d0;
@@ -17,7 +17,33 @@
   --font-body: 'Zen Kaku Gothic New', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
+  /* --- Zoom: scales text + spacing together via rem, set from Settings.
+     Using this instead of browser zoom avoids browser zoom's side effect
+     of shrinking the effective viewport (which is what caused the
+     scrolling/overflow issue at 150%). --- */
+  --ui-scale: 1;
+
   color-scheme: light;
+}
+
+/* Classic theme (the original washi paper / hanko stamp color scheme) —
+   toggled via data-theme="classic" on <html> from Settings. Keeps the
+   current layout structure, only swaps colors + display font back. */
+[data-theme='classic'] {
+  --ink: #1c1b1a;
+  --paper: #ede7da;
+  --paper-line: #d8cfba;
+  --accent: #b0362a;
+  --accent-soft: #c9564a;
+  --seal: #b0362a;
+  --seal-soft: #c9564a;
+  --indigo: #2c4a5e;
+  --indigo-soft: #3d6178;
+  --font-display: 'Shippori Mincho', serif;
+}
+
+html {
+  font-size: calc(16px * var(--ui-scale));
 }
 
 * {
@@ -53,7 +79,7 @@ button {
 .app-shell {
   max-width: 640px;
   margin: 0 auto;
-  padding: 48px 24px 80px;
+  padding: 32px 24px 48px;
   width: 100%;
   flex: 1;
 }
@@ -75,6 +101,132 @@ button {
 /* ---------------------------------------------------------------------
    Top bar (transit-signage style)
 --------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------
+   App frame: persistent left sidebar (desktop) + main content.
+   Below the breakpoint, sidebar hides and the mobile top-bar/menu-links
+   (already built for phone-width screens) take over unchanged.
+--------------------------------------------------------------------- */
+.app-frame {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(26, 26, 26, 0.12);
+  padding: 28px 22px;
+  display: none; /* shown only at desktop widths, see media query below */
+  flex-direction: column;
+  gap: 28px;
+}
+
+.sidebar-brand {
+  font-size: 1.1rem;
+}
+
+.sidebar-streak {
+  margin-top: 0;
+  align-self: flex-start;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: rgba(26, 26, 26, 0.55);
+  text-align: left;
+}
+
+.sidebar-nav-item:hover {
+  background: rgba(26, 26, 26, 0.04);
+  color: var(--ink);
+}
+
+.sidebar-nav-item.active {
+  background: rgba(232, 73, 29, 0.08);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.sidebar-nav-item .jp {
+  font-size: 0.7rem;
+  color: rgba(26, 26, 26, 0.3);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: rgba(26, 26, 26, 0.35);
+}
+
+/* ---------------------------------------------------------------------
+   Brand lockup: "PRACTICE 日本語" with A/I picked out to spell AI
+--------------------------------------------------------------------- */
+.brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.brand-ai {
+  color: var(--accent);
+}
+
+.brand-jp {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 0.7em;
+  color: rgba(26, 26, 26, 0.5);
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+
+@media (min-width: 901px) {
+  .sidebar {
+    display: flex;
+  }
+  .top-bar,
+  .bottom-bar,
+  .menu-links,
+  .mobile-only-streak {
+    display: none;
+  }
+  .app-shell {
+    max-width: 780px;
+    padding-top: 48px;
+  }
+  .setup-layout {
+    max-width: 900px;
+  }
+}
+
 .top-bar {
   border-bottom: 1px solid rgba(26, 26, 26, 0.12);
 }
@@ -146,10 +298,10 @@ button {
 .setup-layout {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 56px 24px;
+  padding: 36px 24px;
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
-  gap: 40px;
+  gap: 32px;
 }
 
 @media (max-width: 800px) {
@@ -224,7 +376,7 @@ button {
 .setup-controls {
   display: flex;
   flex-direction: column;
-  gap: 36px;
+  gap: 26px;
 }
 
 .setup-section-head {
@@ -640,6 +792,194 @@ button {
   color: var(--muted);
 }
 
+/* ---------------------------------------------------------------------
+   Chat-bubble conversation UI
+--------------------------------------------------------------------- */
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.chat-bubble {
+  max-width: 78%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  position: relative;
+}
+
+.chat-bubble-npc {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid var(--paper-line);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-bubble-role {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.chat-bubble-row-user {
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.chat-bubble-user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-bubble-user.less-natural {
+  background: rgba(26, 26, 26, 0.75);
+}
+
+.chat-reveal {
+  max-width: 78%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding-right: 4px;
+}
+
+.chat-reveal-reading {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.chat-reveal-translation {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.chat-reveal-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+}
+
+.chat-reveal-tag.is-natural {
+  color: var(--accent);
+}
+
+.chat-reveal-tag.is-less-natural {
+  color: var(--muted);
+}
+
+.chat-reveal-explanation {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: right;
+  max-width: 100%;
+}
+
+.chat-choice-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--paper-line);
+  padding-top: 16px;
+}
+
+.chat-choice-button {
+  text-align: left;
+  padding: 14px 18px;
+  border: 1.5px solid var(--paper-line);
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--ink);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.chat-choice-button:hover {
+  border-color: var(--accent);
+  background: rgba(232, 73, 29, 0.06);
+}
+
+/* ---------------------------------------------------------------------
+   Compact icon-based rating row (used by both Quiz and Scenario screens)
+--------------------------------------------------------------------- */
+.rating-icon-row {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--paper-line);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.rating-icon-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 44px;
+  padding: 6px 0;
+  border: 1.5px solid var(--paper-line);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.rating-icon-button:hover {
+  border-color: var(--accent);
+  background: rgba(232, 73, 29, 0.06);
+}
+
+.rating-glyph {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.rating-icon-label {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rating-icon-broken .rating-glyph { color: var(--seal); }
+.rating-icon-good .rating-glyph { color: var(--accent); }
+.rating-icon-gem .rating-glyph { color: var(--gold); }
+
+.rating-thanks-icon {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  border-top: 1px solid var(--paper-line);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
 .app-header .title-sub {
   font-family: var(--font-mono);
   font-size: 0.75rem;
@@ -677,12 +1017,12 @@ button {
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid var(--paper-line);
   border-radius: 4px;
-  padding: 32px;
+  padding: 24px;
   backdrop-filter: blur(2px);
 }
 
 .panel-section {
-  margin-bottom: 32px;
+  margin-bottom: 22px;
 }
 
 .panel-section:last-child {
@@ -1372,67 +1712,9 @@ button {
   color: var(--indigo);
 }
 
-/* ---------------------------------------------------------------------
-   Quality rating (per-question, optional)
---------------------------------------------------------------------- */
-.rating-row {
-  border-top: 1px solid var(--paper-line);
-  padding-top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.rating-label {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-}
-
-.rating-buttons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.rating-button {
-  padding: 8px 14px;
-  border-radius: 3px;
-  border: 1.5px solid var(--paper-line);
-  background: transparent;
-  font-size: 0.8rem;
-  cursor: pointer;
-  font-family: var(--font-body);
-  color: var(--ink);
-}
-
-.rating-button:hover {
-  border-color: var(--indigo-soft);
-}
-
-.rating-very-wrong:hover {
-  border-color: var(--seal);
-  color: var(--seal);
-}
-
-.rating-okay:hover {
-  border-color: var(--indigo);
-  color: var(--indigo);
-}
-
-.rating-thanks {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--indigo);
-  border-top: 1px solid var(--paper-line);
-  padding-top: 14px;
-}
-
-/* Quality stats table needs 4 columns instead of 3 */
+/* Quality stats table needs 5 columns (model + good/off/broken/gem) */
 .stats-row-quality {
-  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;
 }
 
 .stats-model-name {

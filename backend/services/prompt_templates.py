@@ -219,3 +219,41 @@ Respond in exactly this JSON structure:
 Generate the {count} questions now."""
 
     return prompt
+
+
+def build_scenario_npc_prompt(level: str, npc_role: str, steps: list[dict]) -> str:
+    """
+    Asks the model to write fresh dialogue lines for a conversation
+    scenario's NPC — flavor text only. This is safe to let the LLM handle
+    because nothing here is graded: the phrase CHOICES, which one is more
+    natural, and why are all fixed curated data (see scenario_data.py) that
+    this prompt never touches. The model only varies what the NPC says to
+    set up each step, given the fixed meaning that line must communicate.
+    """
+    items_str = "\n".join(
+        f'id {i + 1}: must communicate (in English): "{step["situation"]}"'
+        for i, step in enumerate(steps)
+    )
+
+    prompt = f"""You are writing spoken dialogue lines for a Japanese conversation practice app, JLPT {level.upper()} level. The speaker is: {npc_role}.
+
+For each numbered item below, write ONE natural, conversational Japanese line this {npc_role} would say to communicate the given meaning. Match JLPT {level.upper()} vocabulary and grammar difficulty — not harder, not easier.
+
+{items_str}
+
+Rules:
+- Write ONLY the spoken Japanese line for each id — natural spoken dialogue, not a formal written sentence.
+- Written ENTIRELY in Japanese script. Never insert English words into the line.
+- Do NOT use backslashes or any escape characters.
+- Return ONLY valid JSON. No markdown code fences, no preamble, no commentary.
+
+Respond in exactly this JSON structure:
+{{
+  "items": [
+    {{"id": 1, "sentence": "the Japanese dialogue line", "explanation": "brief English recap of what was communicated"}}
+  ]
+}}
+
+Generate the {len(steps)} lines now."""
+
+    return prompt

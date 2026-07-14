@@ -7,8 +7,10 @@ import StatsPanel from './components/StatsPanel.jsx'
 import FlashcardDeck from './components/FlashcardDeck.jsx'
 import SettingsPanel from './components/SettingsPanel.jsx'
 import ScenarioMode from './components/ScenarioMode.jsx'
+import Sidebar from './components/Sidebar.jsx'
+import Brand from './components/Brand.jsx'
 import { generateQuestions, ApiError } from './api.js'
-import { getStreak, recordActivityToday, saveSession, getSeenWords, getWordsForReview, getSelectedModel } from './db.js'
+import { getStreak, recordActivityToday, saveSession, getSeenWords, getWordsForReview, getSelectedModel, getTheme, getUIScale } from './db.js'
 
 const STAGE = {
   CONFIG: 'config',
@@ -21,7 +23,7 @@ const STAGE = {
   SCENARIO: 'scenario',
 }
 
-// Maps every stage to one of the three breadcrumb labels in the top bar
+// Maps every stage to one of the three breadcrumb labels in the mobile top bar
 const BREADCRUMB_FOR_STAGE = {
   [STAGE.CONFIG]: 'Setup',
   [STAGE.LOADING]: 'Session',
@@ -31,6 +33,26 @@ const BREADCRUMB_FOR_STAGE = {
   [STAGE.STATS]: 'Review',
   [STAGE.FLASHCARDS]: 'Review',
   [STAGE.SETTINGS]: 'Review',
+}
+
+// Maps every stage to the sidebar nav item it belongs to, for active highlighting
+const NAV_KEY_FOR_STAGE = {
+  [STAGE.CONFIG]: 'config',
+  [STAGE.LOADING]: 'config',
+  [STAGE.QUIZ]: 'config',
+  [STAGE.COMPLETE]: 'config',
+  [STAGE.SCENARIO]: 'scenario',
+  [STAGE.STATS]: 'stats',
+  [STAGE.FLASHCARDS]: 'flashcards',
+  [STAGE.SETTINGS]: 'settings',
+}
+
+const NAV_KEY_TO_STAGE = {
+  config: STAGE.CONFIG,
+  scenario: STAGE.SCENARIO,
+  stats: STAGE.STATS,
+  flashcards: STAGE.FLASHCARDS,
+  settings: STAGE.SETTINGS,
 }
 
 const MIN_WORDS_FOR_REVIEW = 5 // below this, review mode isn't very useful yet
@@ -49,6 +71,8 @@ export default function App() {
   useEffect(() => {
     getStreak().then(setStreak)
     getSelectedModel().then((m) => setSelectedModelLabel(m || 'qwen2.5:7b-instruct'))
+    getTheme().then((theme) => document.documentElement.setAttribute('data-theme', theme))
+    getUIScale().then((scale) => document.documentElement.style.setProperty('--ui-scale', scale))
   }, [])
 
   // Check whether review mode has enough words to be worth offering,
@@ -109,111 +133,119 @@ export default function App() {
   }
 
   const currentBreadcrumb = BREADCRUMB_FOR_STAGE[stage]
+  const activeNavKey = NAV_KEY_FOR_STAGE[stage]
 
   return (
-    <div className="genkou-bg">
-      <header className="top-bar">
-        <div className="top-bar-inner">
-          <div className="top-bar-brand">
-            <span className="top-bar-logo">STUDY.JP</span>
-            <span className="top-bar-jp">日本語能力試験</span>
-          </div>
-          <div className="top-bar-nav">
-            {['Setup', 'Session', 'Review'].map((label, i) => (
-              <span key={label} style={{ display: 'contents' }}>
-                {i > 0 && <span className="sep">/</span>}
-                <button className={currentBreadcrumb === label ? 'active' : ''} disabled>
-                  {label}
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-      </header>
+    <div className="app-frame">
+      <Sidebar
+        activeStage={activeNavKey}
+        onNavigate={(key) => setStage(NAV_KEY_TO_STAGE[key])}
+        streak={streak}
+      />
 
-      {stage === STAGE.CONFIG ? (
-        <div className="setup-layout">
-          <div className="setup-title-block">
-            <p className="eyebrow">▸ New Session</p>
-            <h1>Configure<br />your line.</h1>
-            <p>Pick a level, category, and size. Questions are generated fresh by a local model — no fixed bank, no accounts.</p>
+      <div className="app-main genkou-bg">
+        <header className="top-bar">
+          <div className="top-bar-inner">
+            <div className="top-bar-brand">
+              <Brand showJp={false} />
+            </div>
+            <div className="top-bar-nav">
+              {['Setup', 'Session', 'Review'].map((label, i) => (
+                <span key={label} style={{ display: 'contents' }}>
+                  {i > 0 && <span className="sep">/</span>}
+                  <button className={currentBreadcrumb === label ? 'active' : ''} disabled>
+                    {label}
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        </header>
 
-            <div className="setup-current-badge">
-              <span className="badge-circle">{config.level}</span>
-              <div className="badge-label">
-                Current Level
-                <div className="badge-sub">{config.category.toUpperCase()} · {String(config.count).padStart(2, '0')} Q</div>
+        {stage === STAGE.CONFIG ? (
+          <div className="setup-layout">
+            <div className="setup-title-block">
+              <p className="eyebrow">▸ New Session</p>
+              <h1>Configure<br />your line.</h1>
+              <p>Pick a level, category, and size. Questions are generated fresh by a local model — no fixed bank, no accounts.</p>
+
+              <div className="setup-current-badge">
+                <span className="badge-circle">{config.level}</span>
+                <div className="badge-label">
+                  Current Level
+                  <div className="badge-sub">{config.category.toUpperCase()} · {String(config.count).padStart(2, '0')} Q</div>
+                </div>
               </div>
+
+              {streak && streak.currentStreak > 0 && (
+                <div className="streak-badge mobile-only-streak" style={{ marginTop: 20 }}>
+                  <span className="flame">🔥</span>
+                  {streak.currentStreak} day streak
+                </div>
+              )}
             </div>
 
-            {streak && streak.currentStreak > 0 && (
-              <div className="streak-badge" style={{ marginTop: 20 }}>
-                <span className="flame">🔥</span>
-                {streak.currentStreak} day streak
-              </div>
+            <ConfigPanel
+              config={config}
+              onChange={setConfig}
+              onGenerate={handleGenerate}
+              onConverse={() => setStage(STAGE.SCENARIO)}
+              isLoading={false}
+              error={error}
+              reviewAvailable={reviewAvailable}
+              modelLabel={selectedModelLabel}
+              onOpenStats={() => setStage(STAGE.STATS)}
+              onOpenFlashcards={() => setStage(STAGE.FLASHCARDS)}
+              onOpenSettings={() => setStage(STAGE.SETTINGS)}
+            />
+          </div>
+        ) : (
+          <div className="app-shell">
+            {stage === STAGE.LOADING && <LoadingScreen />}
+
+            {stage === STAGE.QUIZ && (
+              <QuizScreen
+                questions={questions}
+                config={config}
+                modelUsed={modelUsed}
+                onComplete={handleQuizComplete}
+                onQuit={handleQuizQuit}
+              />
+            )}
+
+            {stage === STAGE.COMPLETE && (
+              <SessionComplete
+                summary={summary}
+                streak={streak}
+                onRestart={() => setStage(STAGE.CONFIG)}
+              />
+            )}
+
+            {stage === STAGE.STATS && (
+              <StatsPanel onBack={() => setStage(STAGE.CONFIG)} />
+            )}
+
+            {stage === STAGE.FLASHCARDS && (
+              <FlashcardDeck onBack={() => setStage(STAGE.CONFIG)} />
+            )}
+
+            {stage === STAGE.SETTINGS && (
+              <SettingsPanel onBack={() => setStage(STAGE.CONFIG)} />
+            )}
+
+            {stage === STAGE.SCENARIO && (
+              <ScenarioMode onBack={() => setStage(STAGE.CONFIG)} />
             )}
           </div>
+        )}
 
-          <ConfigPanel
-            config={config}
-            onChange={setConfig}
-            onGenerate={handleGenerate}
-            onConverse={() => setStage(STAGE.SCENARIO)}
-            isLoading={false}
-            error={error}
-            reviewAvailable={reviewAvailable}
-            modelLabel={selectedModelLabel}
-            onOpenStats={() => setStage(STAGE.STATS)}
-            onOpenFlashcards={() => setStage(STAGE.FLASHCARDS)}
-            onOpenSettings={() => setStage(STAGE.SETTINGS)}
-          />
-        </div>
-      ) : (
-        <div className="app-shell">
-          {stage === STAGE.LOADING && <LoadingScreen />}
-
-          {stage === STAGE.QUIZ && (
-            <QuizScreen
-              questions={questions}
-              config={config}
-              modelUsed={modelUsed}
-              onComplete={handleQuizComplete}
-              onQuit={handleQuizQuit}
-            />
-          )}
-
-          {stage === STAGE.COMPLETE && (
-            <SessionComplete
-              summary={summary}
-              streak={streak}
-              onRestart={() => setStage(STAGE.CONFIG)}
-            />
-          )}
-
-          {stage === STAGE.STATS && (
-            <StatsPanel onBack={() => setStage(STAGE.CONFIG)} />
-          )}
-
-          {stage === STAGE.FLASHCARDS && (
-            <FlashcardDeck onBack={() => setStage(STAGE.CONFIG)} />
-          )}
-
-          {stage === STAGE.SETTINGS && (
-            <SettingsPanel onBack={() => setStage(STAGE.CONFIG)} />
-          )}
-
-          {stage === STAGE.SCENARIO && (
-            <ScenarioMode onBack={() => setStage(STAGE.CONFIG)} />
-          )}
-        </div>
-      )}
-
-      <footer className="bottom-bar">
-        <div className="bottom-bar-inner">
-          <span>JLPT.STUDY · LOCAL-FIRST</span>
-          <span>v0.1 · {currentBreadcrumb?.toUpperCase()}</span>
-        </div>
-      </footer>
+        <footer className="bottom-bar">
+          <div className="bottom-bar-inner">
+            <span>LOCAL-FIRST</span>
+            <span>v0.1 · {currentBreadcrumb?.toUpperCase()}</span>
+          </div>
+        </footer>
+      </div>
     </div>
   )
 }

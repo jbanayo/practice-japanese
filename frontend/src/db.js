@@ -2,7 +2,7 @@
  * Local persistence layer using IndexedDB (not localStorage — gives us more
  * headroom and structured queries, still 100% local/offline).
  *
- * Four stores, each with bounded growth:
+ * Five stores, each with bounded growth:
  * - sessions:       one small record per completed quiz session (date, level,
  *                   category, score, attempts). Grows with usage but each
  *                   record is tiny (~200 bytes), so even years of daily use
@@ -11,18 +11,24 @@
  *                   size of the reference dataset (~8,000 vocab + ~2,200 kanji),
  *                   NOT by how often you use the app. Worst case ever: ~10,000
  *                   small records, still under ~2MB fully populated.
- * - meta:           tiny singleton records like the current streak and the
- *                   selected model setting.
+ * - meta:           tiny singleton records like the current streak, selected
+ *                   model, theme, and zoom preferences.
  * - qualityRatings: one small record per optional "rate this question"
  *                   submission (model, rating). Grows with usage, but each
  *                   record is tiny and this is opt-in per question.
+ * - conversations:  one record per COMPLETED conversation scenario, storing
+ *                   the full transcript (dialogue lines actually used,
+ *                   furigana segments, which choice was picked at each step).
+ *                   Lets "Review Past Conversations" replay a full transcript
+ *                   with zero Ollama calls — the whole point is not spending
+ *                   more tokens re-generating something already seen.
  *
  * Question generation caching (if added later) is intentionally NOT in this
  * file — that would be unbounded and belongs in its own clearable store.
  */
 
 const DB_NAME = 'jlpt_exam_db'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -42,6 +48,9 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains('qualityRatings')) {
         db.createObjectStore('qualityRatings', { keyPath: 'id', autoIncrement: true })
+      }
+      if (!db.objectStoreNames.contains('conversations')) {
+        db.createObjectStore('conversations', { keyPath: 'id', autoIncrement: true })
       }
     }
 
@@ -282,13 +291,60 @@ export async function setSelectedModel(modelName) {
   })
 }
 
+// --- Theme (color scheme) ------------------------------------------------
+
+export async function getTheme() {
+  const db = await openDB()
+  const tx = db.transaction('meta', 'readonly')
+  const record = await promisifyRequest(tx.objectStore('meta').get('theme'))
+  return record ? record.value : 'metro' // 'metro' (new) or 'classic' (previous washi/hanko look)
+}
+
+export async function setTheme(theme) {
+  const db = await openDB()
+  const tx = db.transaction('meta', 'readwrite')
+  tx.objectStore('meta').put({ key: 'theme', value: theme })
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+// --- UI Zoom (scales text + spacing together, avoids browser-zoom's
+// layout/scrolling side effects) ------------------------------------------
+
+export async function getUIScale() {
+  const db = await openDB()
+  const tx = db.transaction('meta', 'readonly')
+  const record = await promisifyRequest(tx.objectStore('meta').get('uiScale'))
+  return record ? record.value : 1
+}
+
+export async function setUIScale(scale) {
+  const db = await openDB()
+  const tx = db.transaction('meta', 'readwrite')
+  tx.objectStore('meta').put({ key: 'uiScale', value: scale })
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
 // --- Quality ratings (optional per-question AI-output feedback) --------
 
 export const RATING = {
-  VERY_WRONG: 'very_wrong',
-  SLIGHTLY_WRONG: 'slightly_wrong',
-  OKAY: 'okay',
+  GOOD: 'good',
+  OFF: 'off',
+  BROKEN: 'broken',
+  GEM: 'gem',
 }
+
+export const RATING_OPTIONS = [
+  { key: RATING.GOOD, label: 'Good', glyph: '✓' },
+  { key: RATING.OFF, label: 'Off', glyph: '~' },
+  { key: RATING.BROKEN, label: 'Broken', glyph: '✗' },
+  { key: RATING.GEM, label: 'Gem', glyph: '★' },
+]
 
 /**
  * Records an optional quality rating for a single generated question,
@@ -314,7 +370,7 @@ export async function saveQualityRating({ model, category, level, word, rating }
 
 /**
  * Aggregates quality ratings by model, for the Stats page.
- * Returns { "qwen2.5:7b-instruct": { very_wrong: 2, slightly_wrong: 5, okay: 20, total: 27 }, ... }
+ * Returns { "qwen2.5:7b-instruct": { good: 20, off: 3, broken: 1, gem: 2, total: 26 }, ... }
  */
 export async function getQualityStatsByModel() {
   const db = await openDB()
@@ -324,7 +380,7 @@ export async function getQualityStatsByModel() {
   const byModel = {}
   for (const r of all) {
     if (!byModel[r.model]) {
-      byModel[r.model] = { very_wrong: 0, slightly_wrong: 0, okay: 0, total: 0 }
+      byModel[r.model] = { good: 0, off: 0, broken: 0, gem: 0, total: 0 }
     }
     byModel[r.model][r.rating] = (byModel[r.model][r.rating] || 0) + 1
     byModel[r.model].total += 1
@@ -332,12 +388,40 @@ export async function getQualityStatsByModel() {
   return byModel
 }
 
+// --- Conversations (saved scenario transcripts, for zero-token replay) --
+
+/**
+ * Saves a completed conversation's full transcript — the actual dialogue
+ * lines used (AI-generated or fallback), furigana segments, and which
+ * choice was picked at each step. Lets "Review Past Conversations" replay
+ * this later with NO Ollama call at all.
+ */
+export async function saveConversation(record) {
+  const db = await openDB()
+  const tx = db.transaction('conversations', 'readwrite')
+  tx.objectStore('conversations').add({
+    date: new Date().toISOString(),
+    ...record,
+  })
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function getAllConversations() {
+  const db = await openDB()
+  const tx = db.transaction('conversations', 'readonly')
+  const result = await promisifyRequest(tx.objectStore('conversations').getAll())
+  return result.sort((a, b) => new Date(b.date) - new Date(a.date))
+}
+
 // --- Reset / clear all data ---------------------------------------------
 
 /** Wipes every store — used by the Settings "Reset" button. Irreversible. */
 export async function clearAllData() {
   const db = await openDB()
-  const storeNames = ['sessions', 'wordStats', 'meta', 'qualityRatings']
+  const storeNames = ['sessions', 'wordStats', 'meta', 'qualityRatings', 'conversations']
   const tx = db.transaction(storeNames, 'readwrite')
   for (const name of storeNames) {
     tx.objectStore(name).clear()

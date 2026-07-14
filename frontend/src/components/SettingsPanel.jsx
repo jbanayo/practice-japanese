@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react'
 import { getAvailableModels, ApiError } from '../api.js'
-import { getSelectedModel, setSelectedModel, clearAllData } from '../db.js'
+import {
+  getSelectedModel, setSelectedModel, clearAllData,
+  getTheme, setTheme, getUIScale, setUIScale,
+} from '../db.js'
 import ConfirmDialog from './ConfirmDialog.jsx'
+
+const THEMES = [
+  { id: 'metro', label: 'Metro (current)' },
+  { id: 'classic', label: 'Classic (washi/hanko)' },
+]
+
+const ZOOM_OPTIONS = [90, 100, 110, 125, 140]
 
 export default function SettingsPanel({ onBack }) {
   const [modelInfo, setModelInfo] = useState(null)
@@ -9,6 +19,8 @@ export default function SettingsPanel({ onBack }) {
   const [error, setError] = useState(null)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [resetDone, setResetDone] = useState(false)
+  const [theme, setThemeState] = useState('metro')
+  const [zoom, setZoomState] = useState(100)
 
   useEffect(() => {
     async function load() {
@@ -20,6 +32,10 @@ export default function SettingsPanel({ onBack }) {
       } catch (e) {
         setError(e instanceof ApiError ? e.message : 'Could not reach the backend.')
       }
+      const savedTheme = await getTheme()
+      setThemeState(savedTheme)
+      const savedScale = await getUIScale()
+      setZoomState(Math.round(savedScale * 100))
     }
     load()
   }, [])
@@ -29,15 +45,72 @@ export default function SettingsPanel({ onBack }) {
     await setSelectedModel(name)
   }
 
+  async function handleSelectTheme(themeId) {
+    setThemeState(themeId)
+    await setTheme(themeId)
+    document.documentElement.setAttribute('data-theme', themeId)
+  }
+
+  async function handleSelectZoom(percent) {
+    setZoomState(percent)
+    const scale = percent / 100
+    await setUIScale(scale)
+    document.documentElement.style.setProperty('--ui-scale', scale)
+  }
+
   async function handleReset() {
     await clearAllData()
     setShowResetConfirm(false)
     setResetDone(true)
     setSelected(modelInfo?.default_model || null)
+    // Preferences live in the same 'meta' store that just got wiped —
+    // reapply the defaults to the actual page, not just React state.
+    setThemeState('metro')
+    setZoomState(100)
+    document.documentElement.setAttribute('data-theme', 'metro')
+    document.documentElement.style.setProperty('--ui-scale', 1)
   }
 
   return (
     <div className="panel">
+      <div className="panel-section">
+        <div className="panel-label">Theme</div>
+        <div className="stamp-grid">
+          {THEMES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`stamp-option${theme === t.id ? ' selected' : ''}`}
+              onClick={() => handleSelectTheme(t.id)}
+            >
+              <span className="stamp-mark" />
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel-section">
+        <div className="panel-label">Zoom</div>
+        <p className="settings-description">
+          Scales text and spacing together — unlike browser zoom, this won't
+          cause layout overflow/scrolling at larger sizes.
+        </p>
+        <div className="stamp-grid">
+          {ZOOM_OPTIONS.map((percent) => (
+            <button
+              key={percent}
+              type="button"
+              className={`stamp-option${zoom === percent ? ' selected' : ''}`}
+              onClick={() => handleSelectZoom(percent)}
+            >
+              <span className="stamp-mark" />
+              {percent}%
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="panel-section">
         <div className="panel-label">AI Model (Ollama)</div>
 

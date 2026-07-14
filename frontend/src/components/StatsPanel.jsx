@@ -66,16 +66,18 @@ export default function StatsPanel({ onBack }) {
           <div className="stats-table">
             <div className="stats-row stats-header stats-row-quality">
               <span>Model</span>
-              <span>Very Wrong</span>
-              <span>Slightly Wrong</span>
-              <span>Okay</span>
+              <span>✓ Good</span>
+              <span>~ Off</span>
+              <span>✗ Broken</span>
+              <span>★ Gem</span>
             </div>
             {Object.entries(qualityStats).map(([model, s]) => (
               <div className="stats-row stats-row-quality" key={model}>
                 <span className="stats-model-name">{model}</span>
-                <span>{s.very_wrong}</span>
-                <span>{s.slightly_wrong}</span>
-                <span>{s.okay}</span>
+                <span>{s.good}</span>
+                <span>{s.off}</span>
+                <span>{s.broken}</span>
+                <span>{s.gem}</span>
               </div>
             ))}
           </div>

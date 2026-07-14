@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { updateWordStat, ensureWordSeen, saveQualityRating, RATING } from '../db.js'
+import { updateWordStat, ensureWordSeen, saveQualityRating } from '../db.js'
+import RatingRow from './RatingRow.jsx'
 import ConfirmDialog from './ConfirmDialog.jsx'
 
 /** Shuffles a question's options and recomputes correct_option so the
@@ -165,24 +166,7 @@ export default function QuizScreen({ questions, config, modelUsed, onComplete, o
           <strong>{isCorrect ? '正解 — Correct!' : '不正解 — Incorrect'}</strong>
           <p>{current.explanation}</p>
 
-          {ratedIds.has(current.id) ? (
-            <div className="rating-thanks">Thanks for the feedback</div>
-          ) : (
-            <div className="rating-row">
-              <span className="rating-label">Rate this question (optional):</span>
-              <div className="rating-buttons">
-                <button className="rating-button rating-very-wrong" onClick={() => handleRate(RATING.VERY_WRONG)}>
-                  Very Wrong
-                </button>
-                <button className="rating-button rating-slightly-wrong" onClick={() => handleRate(RATING.SLIGHTLY_WRONG)}>
-                  Slightly Wrong
-                </button>
-                <button className="rating-button rating-okay" onClick={() => handleRate(RATING.OKAY)}>
-                  It's Okay
-                </button>
-              </div>
-            </div>
-          )}
+          <RatingRow rated={ratedIds.has(current.id)} onRate={handleRate} />
 
           <button className="generate-button" onClick={handleNext}>
             Next ▸

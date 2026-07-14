@@ -51,8 +51,12 @@ export async function lookupWords({ level, category, words }) {
   return data.cards
 }
 
-export async function getRandomScenario() {
-  const response = await fetch(`${API_BASE}/scenarios/random`)
+export async function getRandomScenario(level, model) {
+  const params = new URLSearchParams()
+  if (level) params.set('level', level)
+  if (model) params.set('model', model)
+  const url = `${API_BASE}/scenarios/random${params.toString() ? '?' + params.toString() : ''}`
+  const response = await fetch(url)
   const data = await response.json()
   if (!response.ok) {
     throw new ApiError(data.error || `Request failed with status ${response.status}`)

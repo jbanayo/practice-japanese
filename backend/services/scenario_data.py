@@ -29,6 +29,7 @@ SCENARIOS = [
         "title": "Ordering at a Restaurant",
         "title_jp": "レストランで注文する",
         "level": "N5",
+        "npc_role": "restaurant waiter",
         "steps": [
             {
                 "situation": "A staff member greets you at the entrance of a restaurant.",
@@ -61,6 +62,7 @@ SCENARIOS = [
         "title": "Asking for Directions",
         "title_jp": "道を尋ねる",
         "level": "N5",
+        "npc_role": "a stranger on the street",
         "steps": [
             {
                 "situation": "You want to ask a stranger on the street for help.",
@@ -93,6 +95,7 @@ SCENARIOS = [
         "title": "Convenience Store Checkout",
         "title_jp": "コンビニでの会計",
         "level": "N5",
+        "npc_role": "convenience store cashier",
         "steps": [
             {
                 "situation": "The cashier asks if you'd like a bag for your items.",
@@ -125,6 +128,7 @@ SCENARIOS = [
         "title": "Meeting Someone for the First Time",
         "title_jp": "初めて会う人と",
         "level": "N4",
+        "npc_role": "a colleague's boss",
         "steps": [
             {
                 "situation": "You're introduced to a colleague's boss for the first time.",
@@ -152,22 +156,60 @@ SCENARIOS = [
             },
         ],
     },
+    {
+        "id": "reschedule_call",
+        "title": "Calling to Reschedule an Appointment",
+        "title_jp": "予約の変更の電話",
+        "level": "N3",
+        "npc_role": "restaurant staff on the phone",
+        "steps": [
+            {
+                "situation": "You call a business to ask if you can change your appointment time.",
+                "situation_jp": "予約の時間を変更したくて、お店に電話しています。",
+                "choice_a": {"phrase": "予約の時間を変えたいんですが、可能ですか。", "reading": "よやくのじかんをかえたいんですが、かのうですか。", "translation": "I'd like to change my appointment time — would that be possible?"},
+                "choice_b": {"phrase": "時間、変えて。", "reading": "じかん、かえて。", "translation": "Change the time."},
+                "better_choice": "a",
+                "explanation": "Calling a business requires polite, indirect phrasing with a softening 「〜んですが」. 「変えて」is a blunt casual command form, completely inappropriate when speaking to a business on the phone.",
+            },
+            {
+                "situation": "The staff member asks what time you'd prefer instead.",
+                "situation_jp": "店員さんが何時がいいか聞いています。",
+                "choice_a": {"phrase": "3時はどうですか。", "reading": "さんじはどうですか。", "translation": "How about 3 o'clock?"},
+                "choice_b": {"phrase": "3時で。", "reading": "さんじで。", "translation": "3 o'clock."},
+                "better_choice": "a",
+                "explanation": "「〜はどうですか」politely proposes a time as a suggestion, appropriate for this exchange. 「3時で」is a clipped, very casual way to state a preference — too abrupt for a polite phone call.",
+            },
+            {
+                "situation": "The staff confirms the new time, and you're ready to end the call.",
+                "situation_jp": "店員さんが新しい時間を確認し、電話を終える場面です。",
+                "choice_a": {"phrase": "よろしくお願いします。", "reading": "よろしくおねがいします。", "translation": "Thank you, I appreciate it."},
+                "choice_b": {"phrase": "それじゃ。", "reading": "それじゃ。", "translation": "Well then."},
+                "better_choice": "a",
+                "explanation": "「よろしくお願いします」is the standard polite way to close a call like this. 「それじゃ」is a casual sign-off used between friends, not appropriate after asking a business for a favor.",
+            },
+        ],
+    },
 ]
 
 
-def get_random_scenario() -> dict:
-    """Randomly selects one full scenario from the curated bank."""
+def get_random_scenario(level: str = None) -> dict:
+    """Randomly selects one full scenario from the curated bank, optionally
+    filtered to a specific JLPT level."""
     import random
-    return random.choice(SCENARIOS)
+    pool = SCENARIOS if level is None else [s for s in SCENARIOS if s["level"] == level.upper()]
+    if not pool:
+        return None
+    return random.choice(pool)
 
 
 def get_scenario_by_id(scenario_id: str) -> dict | None:
     return next((s for s in SCENARIOS if s["id"] == scenario_id), None)
 
 
-def list_scenario_summaries() -> list[dict]:
+def list_scenario_summaries(level: str = None) -> list[dict]:
     """Lightweight list (id/title/level only) — e.g. for a 'pick a scenario' UI."""
+    pool = SCENARIOS if level is None else [s for s in SCENARIOS if s["level"] == level.upper()]
     return [
         {"id": s["id"], "title": s["title"], "title_jp": s["title_jp"], "level": s["level"]}
-        for s in SCENARIOS
+        for s in pool
     ]

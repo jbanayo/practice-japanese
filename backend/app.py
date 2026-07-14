@@ -29,7 +29,7 @@ Architecture note:
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-from services.prompt_templates import build_generation_prompt, build_sentence_prompt
+from services.prompt_templates import build_generation_prompt, build_sentence_prompt, build_scenario_npc_prompt
 from services.ollama_client import (
     generate_questions, generate_sentences, list_available_models,
     GenerationError, DEFAULT_MODEL,
@@ -37,6 +37,7 @@ from services.ollama_client import (
 from services.question_builder import build_vocab_items, build_kanji_items, assemble_final_questions
 from services.reference_data import get_vocab_by_words, get_kanji_by_characters
 from services.scenario_data import get_random_scenario, get_scenario_by_id, list_scenario_summaries
+from services.furigana import annotate_sentence
 
 app = Flask(__name__)
 CORS(app)  # allow the frontend (different port during dev) to call this API
@@ -170,20 +171,61 @@ def lookup():
     return jsonify({"cards": cards})
 
 
+VALID_SCENARIO_LEVELS = {"N5", "N4", "N3"}  # N2/N1 parked, per roadmap
+
+
 @app.route("/scenarios", methods=["GET"])
 def scenarios():
-    """Lightweight list of available conversation scenarios (id/title/level only)."""
-    return jsonify({"scenarios": list_scenario_summaries()})
+    """Lightweight list of available conversation scenarios, optionally filtered by level."""
+    level = request.args.get("level")
+    return jsonify({"scenarios": list_scenario_summaries(level)})
 
 
 @app.route("/scenarios/random", methods=["GET"])
 def random_scenario():
     """
-    Returns one full curated scenario at random. NOT an LLM call — this is
-    pure data selection from a hand-verified bank (see services/scenario_data.py).
-    Correctness here doesn't depend on the AI at all, unlike /generate.
+    Returns one full curated scenario at random, optionally filtered by
+    ?level=N5|N4|N3 and ?model=<ollama model name>. The phrase choices/
+    correctness/explanations are ALWAYS the fixed curated data — never
+    touched by the LLM. We attempt to replace each step's NPC dialogue
+    line with a fresh AI-generated one (pure flavor text, nothing graded)
+    for variety; if Ollama is unreachable or the output looks broken, we
+    silently keep the curated static line instead — same safety-net
+    pattern used everywhere else.
+
+    Each step also gets furigana-annotated segments (situation_segments)
+    for the dialogue line, so the frontend can reveal readings for review
+    after the person answers — same furigana engine used for quiz questions.
     """
-    scenario = get_random_scenario()
+    level = request.args.get("level")
+    model = request.args.get("model") or DEFAULT_MODEL
+    scenario = get_random_scenario(level)
+    if scenario is None:
+        return jsonify({"error": f"No scenarios available for level '{level}' yet"}), 404
+
+    scenario = dict(scenario)  # shallow copy so we don't mutate the curated bank
+    scenario["steps"] = [dict(step) for step in scenario["steps"]]
+    scenario["ai_dialogue_used"] = False
+    scenario["model_used"] = None
+
+    try:
+        prompt = build_scenario_npc_prompt(scenario["level"], scenario["npc_role"], scenario["steps"])
+        lines_by_id = generate_sentences(prompt=prompt, model=model)
+        if len(lines_by_id) == len(scenario["steps"]):
+            for i, step in enumerate(scenario["steps"]):
+                new_line = lines_by_id.get(i + 1, {}).get("sentence", "").strip()
+                if new_line:
+                    step["situation_jp"] = new_line
+            scenario["ai_dialogue_used"] = True
+            scenario["model_used"] = model
+    except GenerationError:
+        pass  # fall back to the curated static lines already in place
+
+    # Furigana: no target word to exempt here (unlike quiz questions), so
+    # the whole dialogue line gets annotated based on difficulty vs level.
+    for step in scenario["steps"]:
+        step["situation_segments"] = annotate_sentence(step["situation_jp"], scenario["level"], "")
+
     return jsonify(scenario)
 
 
