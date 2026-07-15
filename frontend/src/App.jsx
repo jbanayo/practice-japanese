@@ -134,6 +134,7 @@ export default function App() {
 
   const currentBreadcrumb = BREADCRUMB_FOR_STAGE[stage]
   const activeNavKey = NAV_KEY_FOR_STAGE[stage]
+  const isSessionActive = stage === STAGE.LOADING || stage === STAGE.QUIZ || stage === STAGE.SCENARIO
 
   return (
     <div className="app-frame">
@@ -141,6 +142,7 @@ export default function App() {
         activeStage={activeNavKey}
         onNavigate={(key) => setStage(NAV_KEY_TO_STAGE[key])}
         streak={streak}
+        hideNav={isSessionActive}
       />
 
       <div className="app-main genkou-bg">
@@ -168,21 +170,6 @@ export default function App() {
               <p className="eyebrow">▸ New Session</p>
               <h1>Configure<br />your line.</h1>
               <p>Pick a level, category, and size. Questions are generated fresh by a local model — no fixed bank, no accounts.</p>
-
-              <div className="setup-current-badge">
-                <span className="badge-circle">{config.level}</span>
-                <div className="badge-label">
-                  Current Level
-                  <div className="badge-sub">{config.category.toUpperCase()} · {String(config.count).padStart(2, '0')} Q</div>
-                </div>
-              </div>
-
-              {streak && streak.currentStreak > 0 && (
-                <div className="streak-badge mobile-only-streak" style={{ marginTop: 20 }}>
-                  <span className="flame">🔥</span>
-                  {streak.currentStreak} day streak
-                </div>
-              )}
             </div>
 
             <ConfigPanel

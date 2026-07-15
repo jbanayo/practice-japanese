@@ -313,11 +313,17 @@ export async function setTheme(theme) {
 // --- UI Zoom (scales text + spacing together, avoids browser-zoom's
 // layout/scrolling side effects) ------------------------------------------
 
+// The app's actual default rendering size. This used to be 1 (100%), but
+// after using the app, 140% felt like the right size — so that becomes the
+// new baseline. The Zoom options in Settings (90/100/110/125/140) are all
+// relative to THIS number now, not to the browser's native 16px.
+export const DEFAULT_UI_SCALE = 1.4
+
 export async function getUIScale() {
   const db = await openDB()
   const tx = db.transaction('meta', 'readonly')
   const record = await promisifyRequest(tx.objectStore('meta').get('uiScale'))
-  return record ? record.value : 1
+  return record ? record.value : DEFAULT_UI_SCALE
 }
 
 export async function setUIScale(scale) {

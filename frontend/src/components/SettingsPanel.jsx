@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getAvailableModels, ApiError } from '../api.js'
 import {
   getSelectedModel, setSelectedModel, clearAllData,
-  getTheme, setTheme, getUIScale, setUIScale,
+  getTheme, setTheme, getUIScale, setUIScale, DEFAULT_UI_SCALE,
 } from '../db.js'
 import ConfirmDialog from './ConfirmDialog.jsx'
 
@@ -35,7 +35,10 @@ export default function SettingsPanel({ onBack }) {
       const savedTheme = await getTheme()
       setThemeState(savedTheme)
       const savedScale = await getUIScale()
-      setZoomState(Math.round(savedScale * 100))
+      // zoom is a percentage OF the app's default scale (140%), not of the
+      // browser's native 16px — so a fresh install shows "100%" here even
+      // though the actual rendered size is what used to be "140%".
+      setZoomState(Math.round((savedScale / DEFAULT_UI_SCALE) * 100))
     }
     load()
   }, [])
@@ -53,7 +56,7 @@ export default function SettingsPanel({ onBack }) {
 
   async function handleSelectZoom(percent) {
     setZoomState(percent)
-    const scale = percent / 100
+    const scale = (percent / 100) * DEFAULT_UI_SCALE
     await setUIScale(scale)
     document.documentElement.style.setProperty('--ui-scale', scale)
   }
@@ -68,7 +71,7 @@ export default function SettingsPanel({ onBack }) {
     setThemeState('metro')
     setZoomState(100)
     document.documentElement.setAttribute('data-theme', 'metro')
-    document.documentElement.style.setProperty('--ui-scale', 1)
+    document.documentElement.style.setProperty('--ui-scale', DEFAULT_UI_SCALE)
   }
 
   return (

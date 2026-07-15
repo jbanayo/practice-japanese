@@ -21,7 +21,7 @@
      Using this instead of browser zoom avoids browser zoom's side effect
      of shrinking the effective viewport (which is what caused the
      scrolling/overflow issue at 150%). --- */
-  --ui-scale: 1;
+  --ui-scale: 1.4;
 
   color-scheme: light;
 }
@@ -302,6 +302,9 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
   gap: 32px;
+  width: 100%;
+  flex: 1;
+  align-content: center;
 }
 
 @media (max-width: 800px) {

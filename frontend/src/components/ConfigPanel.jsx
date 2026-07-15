@@ -107,12 +107,6 @@ export default function ConfigPanel({
       </button>
 
       {error && <div className="error-banner">{error}</div>}
-
-      <div className="menu-links">
-        <span className="back-link" onClick={onOpenStats}>View Stats</span>
-        <span className="back-link" onClick={onOpenFlashcards}>Flashcard Deck</span>
-        <span className="back-link" onClick={onOpenSettings}>Settings</span>
-      </div>
     </div>
   )
 }

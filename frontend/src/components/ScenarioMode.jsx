@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getRandomScenario, ApiError } from '../api.js'
 import { getSelectedModel, saveConversation, getAllConversations, saveQualityRating } from '../db.js'
 import RatingRow from './RatingRow.jsx'
@@ -40,6 +40,17 @@ export default function ScenarioMode({ onBack }) {
 
   const [pastConversations, setPastConversations] = useState(null)
   const [replayConversation, setReplayConversation] = useState(null)
+
+  const chatThreadRef = useRef(null)
+
+  // Auto-scroll to the bottom whenever a new message (NPC line or user
+  // reply) is added, so the newest exchange is always in view — same
+  // behavior as any chat app.
+  useEffect(() => {
+    if (chatThreadRef.current) {
+      chatThreadRef.current.scrollTop = chatThreadRef.current.scrollHeight
+    }
+  }, [messages])
 
   async function handleStart() {
     setError(null)
@@ -291,7 +302,7 @@ export default function ScenarioMode({ onBack }) {
         <span>{stepIndex + 1} / {scenario.steps.length}</span>
       </div>
 
-      <div className="chat-thread">
+      <div className="chat-thread" ref={chatThreadRef}>
         {messages.map((m, i) =>
           m.type === 'npc' ? (
             <div className="chat-bubble chat-bubble-npc" key={i}>
