@@ -114,3 +114,20 @@ def get_kanji_by_characters(level: str, characters: list[str]) -> list[dict]:
         return list(seen.values())
     finally:
         conn.close()
+
+
+def get_total_counts_by_level() -> dict:
+    """Total vocab/kanji entries per JLPT level in the reference DB — used
+    as the denominator for 'X practiced / Y total' progress display."""
+    conn = _get_connection()
+    try:
+        cur = conn.cursor()
+        vocab_counts = dict(cur.execute(
+            "SELECT jlpt_level, COUNT(*) FROM vocab GROUP BY jlpt_level"
+        ).fetchall())
+        kanji_counts = dict(cur.execute(
+            "SELECT jlpt_level, COUNT(*) FROM kanji GROUP BY jlpt_level"
+        ).fetchall())
+        return {"vocabulary": vocab_counts, "kanji": kanji_counts}
+    finally:
+        conn.close()

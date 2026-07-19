@@ -186,6 +186,10 @@ export default function App() {
               onOpenSettings={() => setStage(STAGE.SETTINGS)}
             />
           </div>
+        ) : stage === STAGE.STATS ? (
+          <div className="stats-page-wrap">
+            <StatsPanel onBack={() => setStage(STAGE.CONFIG)} />
+          </div>
         ) : (
           <div className="app-shell">
             {stage === STAGE.LOADING && <LoadingScreen />}
@@ -206,10 +210,6 @@ export default function App() {
                 streak={streak}
                 onRestart={() => setStage(STAGE.CONFIG)}
               />
-            )}
-
-            {stage === STAGE.STATS && (
-              <StatsPanel onBack={() => setStage(STAGE.CONFIG)} />
             )}
 
             {stage === STAGE.FLASHCARDS && (

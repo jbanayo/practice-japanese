@@ -63,3 +63,12 @@ export async function getRandomScenario(level, model) {
   }
   return data
 }
+
+export async function getReferenceCounts() {
+  const response = await fetch(`${API_BASE}/reference-counts`)
+  const data = await response.json()
+  if (!response.ok) {
+    throw new ApiError(data.error || `Request failed with status ${response.status}`)
+  }
+  return data
+}

@@ -1596,6 +1596,396 @@ button {
 }
 
 /* ---------------------------------------------------------------------
+   Stats page (redesigned) — two-column like Setup, hero card on the
+   left, progress/feedback/history sections on the right.
+--------------------------------------------------------------------- */
+.stats-layout {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 36px 24px 60px;
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  gap: 32px;
+  width: 100%;
+}
+
+@media (max-width: 800px) {
+  .stats-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stats-hero-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.stats-hero-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.4rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin: 0;
+}
+
+.stats-hero-sub {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 280px;
+  margin: 0;
+}
+
+.stats-hero-card {
+  border: 2px solid var(--ink);
+  border-radius: 20px;
+  padding: 22px;
+}
+
+.stats-hero-number {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 3rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-top: 6px;
+}
+
+.stats-hero-caption {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.stats-hero-streak {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stats-hero-streak-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.stats-hero-streak-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stats-hero-streak-sub {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.stats-main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  min-width: 0;
+}
+
+.stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Level progress rows */
+.stats-level-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stats-level-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stats-level-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.8rem;
+  border: 1.5px solid rgba(26, 26, 26, 0.25);
+  color: rgba(26, 26, 26, 0.35);
+}
+
+.stats-level-badge.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.stats-level-bar-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.stats-level-bar-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  margin-bottom: 6px;
+}
+
+.stats-level-total {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.stats-level-pct {
+  color: var(--muted);
+}
+
+.stats-level-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(26, 26, 26, 0.08);
+  overflow: hidden;
+}
+
+.stats-level-bar-fill {
+  height: 100%;
+  background: rgba(26, 26, 26, 0.2);
+}
+
+.stats-level-bar-fill.active {
+  background: var(--accent);
+}
+
+/* Category split cards */
+.stats-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.stats-category-card {
+  border: 1px solid var(--paper-line);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.stats-category-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.stats-category-number {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2rem;
+  margin-top: 6px;
+}
+
+.stats-category-caption {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Tutor feedback card */
+.stats-feedback-card {
+  border: 2px solid var(--ink);
+  border-radius: 20px;
+  padding: 22px;
+}
+
+.stats-feedback-card + .stats-feedback-card {
+  margin-top: 16px;
+}
+
+.stats-feedback-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.stats-feedback-share {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.8rem;
+  margin-top: 4px;
+}
+
+.stats-feedback-share span {
+  font-size: 1rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.stats-feedback-meta {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-align: right;
+  line-height: 1.6;
+}
+
+.stats-feedback-bar {
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+  background: rgba(26, 26, 26, 0.08);
+  margin-bottom: 16px;
+}
+
+.stats-feedback-segment {
+  height: 100%;
+}
+
+.stats-feedback-good { background: var(--ink); }
+.stats-feedback-off { background: rgba(26, 26, 26, 0.35); }
+.stats-feedback-broken { background: var(--seal); }
+.stats-feedback-gem { background: var(--gold); }
+
+.stats-feedback-legend {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.stats-feedback-legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.stats-feedback-glyph {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.stats-feedback-glyph.stats-feedback-gem {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #fff;
+}
+
+.stats-feedback-legend-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.stats-feedback-legend-value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-top: 2px;
+}
+
+.stats-feedback-legend-value span {
+  font-family: var(--font-body);
+  font-size: 0.65rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.stats-feedback-note {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 20px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--paper-line);
+}
+
+/* Recent sessions list */
+.stats-recent-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.stats-recent-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--paper-line);
+  font-size: 0.85rem;
+}
+
+.stats-recent-time {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  width: 70px;
+  flex-shrink: 0;
+}
+
+.stats-recent-level {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.65rem;
+  flex-shrink: 0;
+}
+
+.stats-recent-cat {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.stats-recent-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+
+/* ---------------------------------------------------------------------
    Flashcard deck
 --------------------------------------------------------------------- */
 .flashcard-panel {
