@@ -2105,6 +2105,19 @@ button {
   color: var(--indigo);
 }
 
+.settings-about {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-about a {
+  color: var(--accent);
+}
+
 /* Quality stats table needs 5 columns (model + good/off/broken/gem) */
 .stats-row-quality {
   grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;

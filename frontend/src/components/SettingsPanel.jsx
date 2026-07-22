@@ -164,6 +164,11 @@ export default function SettingsPanel({ onBack }) {
         {resetDone && <div className="settings-reset-done">Done — all local data cleared.</div>}
       </div>
 
+      <div className="panel-section settings-about">
+        <span>PRACTICE 日本語 · v1.0</span>
+        <span> — Developed by Julius (<a href="https://github.com/jbanayo" target="_blank" rel="noreferrer">github.com/jbanayo</a>)</span>
+      </div>
+
       <span className="back-link" onClick={onBack}>← Back to menu</span>
 
       {showResetConfirm && (
