@@ -149,9 +149,6 @@ def generate_questions(prompt: str, expected_count: int, model: str = DEFAULT_MO
 
 
 def _validate_sentence_items(data: dict) -> list:
-    """Validates the simplified {id, sentence, explanation} schema used for
-    vocab/kanji, where correct answers/options are computed by our own code,
-    not the model."""
     if "items" not in data or not isinstance(data["items"], list):
         raise GenerationError("Response missing 'items' array")
 
@@ -166,6 +163,15 @@ def _validate_sentence_items(data: dict) -> list:
             raise GenerationError(f"Item {i} missing keys: {missing}")
         if not str(item["sentence"]).strip():
             raise GenerationError(f"Item {i} has an empty sentence")
+
+        # NEW: legitimate Japanese text never contains Latin letters —
+        # loanwords get written in katakana, not English script. Any a-z/A-Z
+        # in the sentence means the model leaked English into it.
+        if re.search(r"[a-zA-Z]", item["sentence"]):
+            raise GenerationError(
+                f"Item {i} has English text leaked into the Japanese sentence: "
+                f"{item['sentence']!r}. Retry the request."
+            )
 
     return items
 
