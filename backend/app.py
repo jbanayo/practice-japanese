@@ -35,7 +35,7 @@ from services.ollama_client import (
     GenerationError, DEFAULT_MODEL,
 )
 from services.question_builder import build_vocab_items, build_kanji_items, assemble_final_questions
-from services.reference_data import get_vocab_by_words, get_kanji_by_characters
+from services.reference_data import get_vocab_by_words, get_kanji_by_characters, get_total_counts_by_level
 from services.scenario_data import get_random_scenario, get_scenario_by_id, list_scenario_summaries
 from services.furigana import annotate_sentence
 
@@ -65,6 +65,9 @@ def models():
         "ollama_reachable": len(available) > 0,
     })
 
+@app.route("/reference-counts", methods=["GET"])
+def reference_counts():
+    return jsonify(get_total_counts_by_level())
 
 @app.route("/generate", methods=["POST"])
 def generate():

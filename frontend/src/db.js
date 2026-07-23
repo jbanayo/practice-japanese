@@ -394,6 +394,25 @@ export async function getQualityStatsByModel() {
   return byModel
 }
 
+async function getAllQualityRatings() {
+  const db = await openDB()
+  const tx = db.transaction('qualityRatings', 'readonly')
+  return promisifyRequest(tx.objectStore('qualityRatings').getAll())
+}
+/**
+ * Words previously rated "Broken" for this category+level — the actual
+ * blacklist, Level 1 style. Derived directly from qualityRatings (no
+ * separate blacklist store needed — every rating is already recorded there).
+ */
+export async function getBrokenWords(category, level) {
+  const all = await getAllQualityRatings() // see note below
+  return [...new Set(
+    all
+      .filter((r) => r.category === category && r.level === level && r.rating === RATING.BROKEN)
+      .map((r) => r.word)
+  )]
+}
+
 // --- Conversations (saved scenario transcripts, for zero-token replay) --
 
 /**

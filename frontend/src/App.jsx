@@ -10,7 +10,7 @@ import ScenarioMode from './components/ScenarioMode.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import Brand from './components/Brand.jsx'
 import { generateQuestions, ApiError } from './api.js'
-import { getStreak, recordActivityToday, saveSession, getSeenWords, getWordsForReview, getSelectedModel, getTheme, getUIScale } from './db.js'
+import { getStreak, recordActivityToday, saveSession, getSeenWords, getWordsForReview, getSelectedModel, getTheme, getUIScale, getBrokenWords} from './db.js'
 
 const STAGE = {
   CONFIG: 'config',
@@ -95,12 +95,19 @@ export default function App() {
         model: selectedModel || undefined, // undefined lets the backend use its own default
       }
 
+      const brokenWords = await getBrokenWords(config.category, config.level)
+
       if (config.mode === 'review') {
         const reviewWords = await getWordsForReview(config.category, config.level, config.count)
-        requestParams.reviewWords = reviewWords
+        // Don't re-select a word for review if it previously produced a broken
+        // generation — regenerating the same word risks the same category of
+        // mistake, and there are usually other weak words worth reviewing instead.
+        requestParams.reviewWords = reviewWords.filter((w) => !brokenWords.includes(w))
       } else {
         const excludeWords = await getSeenWords(config.category, config.level)
-        requestParams.excludeWords = excludeWords
+        // Union with broken words. Mostly redundant with "seen" already, but
+        // matters once a word gets a delete/re-import or in edge cases.
+        requestParams.excludeWords = [...new Set([...excludeWords, ...brokenWords])]
       }
 
       const data = await generateQuestions(requestParams)
