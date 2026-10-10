@@ -1,5 +1,7 @@
 # PRACTICE 日本語 🎌
 
+context: I developed this app while studying for N4. I failed the exam tho, but this app is (foundation wise) good. With more AI developments, this app performs better. Check it out! 
+
 **A local-first Japanese language practice app powered by your own PC.**
 
 No cloud APIs, no accounts, no subscription — a local LLM (via [Ollama](https://ollama.com)) generates fresh, never-repeating practice questions and conversation scenarios, verified against real dictionary data so the AI never has to grade its own homework.
